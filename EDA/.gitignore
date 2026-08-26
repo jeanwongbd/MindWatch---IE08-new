@@ -1,1 +1,12 @@
+# Do not commit raw participant data
+data/raw/*
+!data/raw/.gitkeep
 
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Secrets
+.env
+*.key
