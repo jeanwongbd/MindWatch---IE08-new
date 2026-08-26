@@ -1,13 +1,11 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Optional
-import pandas as pd
-import io
+from pydantic import BaseModel, Field #BaseModel blocks wrong data type input by frontend
+from typing import List, Optional #blocks data value that dont meet requirement. If frontend forget to send, we use the default value.
 
-app = FastAPI(
+app = FastAPI( #creates fastapi instance
     title="MindWatch API",
-    description="Backend service for wearable physiological load and stress mismatch monitoring.",
+    description="Backend service for physiological load and stress mismatch monitoring.",
     version="1.0.0"
 )
 
@@ -19,46 +17,75 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class CheckInRequest(BaseModel):
+class CheckInRequest(BaseModel): #blueprint of frontend response
     user_id: str
-    perceived_stress: int  # 0 to 10
-    tags: List[str]
+    stress: int = Field(..., ge=0, le=10, description="Self-reported stress 0-10")
+    context: List[str] = []
     notes: Optional[str] = None
 
-@app.get("/")
-def read_root():
-    return {"status": "online", "system": "MindWatch Backend API"}
+@app.get("/health") #to check if backend running
+def health_check():
+    return {"status": "online", "version": "1.0.0"}
 
-@app.post("/api/data/check-in")
-def submit_check_in(checkin: CheckInRequest):
-    return {
-        "status": "success",
-        "message": "Check-in recorded",
-        "data": checkin
-    }
-
-@app.post("/api/data/upload-wearable")
-async def upload_wearable_csv(file: UploadFile = File(...)):
-    if not file.filename.endswith('.csv'):
-        raise HTTPException(status_code=400, detail="File must be a CSV format.")
-    
-    contents = await file.read()
-    df = pd.read_csv(io.StringIO(contents.decode('utf-8')))
-    
-    return {
-        "status": "success",
-        "filename": file.filename,
-        "rows_processed": len(df),
-        "columns_found": list(df.columns)
-    }
-
-@app.get("/api/dashboard/mismatch-matrix/{user_id}")
-def get_mismatch_status(user_id: str):
+@app.get("/profiles/{user_id}/today")
+def get_today_profile(user_id: str):
     return {
         "user_id": user_id,
-        "quadrant": "Psychological Pressure",
-        "physiological_load": "Low",
-        "perceived_stress": "High",
-        "baseline_z_score_hrv": -0.15,
-        "contributing_factors": ["Exam deadline tagged", "Sedentary posture detected"]
+        "date": "2026-08-25",
+        "reported_stress": {
+            "value": 3,
+            "scale_max": 10
+        },
+        "physiological_load": {
+            "value": 72,
+            "category": "high"
+        },
+        "mismatch": {
+            "state": "high_body_low_perceived",
+            "label": "Body under load"
+        },
+        "confidence": {
+            "level": "moderate"
+        },
+        "contributors": [
+            {
+                "feature": "sleep",
+                "direction": "negative",
+                "description": "1.3 hours below your usual sleep"
+            },
+            {
+                "feature": "hrv",
+                "direction": "negative",
+                "description": "14% below your usual HRV"
+            }
+        ]
+    }
+
+@app.get("/profiles/{user_id}/timeline")
+def get_timeline(user_id: str, month: Optional[str] = None, year: Optional[str] = None):
+    
+    all_data = [
+        {"date": "2026-07-15", "physiological_load": 30, "reported_stress": 2}, # July
+        {"date": "2026-08-21", "physiological_load": 40, "reported_stress": 4}, # August
+        {"date": "2026-08-22", "physiological_load": 55, "reported_stress": 5}, # August
+        {"date": "2026-08-23", "physiological_load": 80, "reported_stress": 3}, # August
+    ]
+    
+    filtered_data = all_data
+    
+    if year and month:
+        target_prefix = f"{year}-{month}" 
+        filtered_data = [d for d in all_data if d["date"].startswith(target_prefix)]
+        
+    return {
+        "user_id": user_id,
+        "timeline": filtered_data
+    }
+
+@app.post("/checkins")
+def submit_checkin(payload: CheckInRequest):
+    return {
+        "success": True,
+        "message": "Check-in successfully recorded",
+        "data": payload
     }
