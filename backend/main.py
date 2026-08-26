@@ -26,7 +26,7 @@ class CheckInRequest(BaseModel): #blueprint of frontend response
 
 
 def classify_mismatch(physio_load: int, reported_stress: int):
-    # Standard thresholds: Physio (0-100, threshold 50), Reported (0-10, threshold 5)
+    # standard thresholds: Physio (0-100, threshold 50), Reported (0-10, threshold 5)
     is_high_physio = physio_load >= 50
     is_high_stress = reported_stress >= 5
 
