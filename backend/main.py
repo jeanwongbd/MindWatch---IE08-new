@@ -1,7 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Query #Query allows backend to read, double-check, and use the extra filter settings (?month=08)
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field #BaseModel blocks wrong data type input by frontend
 from typing import List, Optional #blocks data value that dont meet requirement. If frontend forget to send, we use the default value.
+
 
 app = FastAPI( #creates fastapi instance
     title="MindWatch API",
@@ -23,27 +24,64 @@ class CheckInRequest(BaseModel): #blueprint of frontend response
     context: List[str] = []
     notes: Optional[str] = None
 
-@app.get("/health") #to check if backend running
-def health_check():
+
+def classify_mismatch(physio_load: int, reported_stress: int):
+    # Standard thresholds: Physio (0-100, threshold 50), Reported (0-10, threshold 5)
+    is_high_physio = physio_load >= 50
+    is_high_stress = reported_stress >= 5
+
+    if not is_high_physio and not is_high_stress:
+        return {
+            "state": "balanced",
+            "label": "Balanced",
+            "description": "Your body biometrics and stress check-in are both at calm, normal levels."
+        }
+    elif is_high_physio and is_high_stress:
+        return {
+            "state": "aligned_high_load",
+            "label": "Aligned High Load",
+            "description": "Both your body signals and your self-report indicate elevated strain."
+        }
+    elif is_high_physio and not is_high_stress:
+        return {
+            "state": "high_body_low_perceived",
+            "label": "Body Under Load",
+            "description": "Your body appears less recovered than usual, although you feel relatively calm."
+        }
+    else:
+        return {
+            "state": "low_body_high_perceived",
+            "label": "Perceived Stress Mismatch",
+            "description": "You reported feeling stressed, but your physical recovery signals remain stable."
+        }
+
+
+@app.get("/health")
+def health_check(): #to check if backend running
     return {"status": "online", "version": "1.0.0"}
 
+
 @app.get("/profiles/{user_id}/today")
-def get_today_profile(user_id: str):
+def get_today_profile(
+    user_id: str,
+    mock_physio: int = Query(72, ge=0, le=100, description="Test value for physiological load"),
+    mock_stress: int = Query(3, ge=0, le=10, description="Test value for reported stress")
+):
+    mismatch_result = classify_mismatch(physio_load=mock_physio, reported_stress=mock_stress)
+    physio_category = "high" if mock_physio >= 50 else "low"
+
     return {
         "user_id": user_id,
         "date": "2026-08-25",
         "reported_stress": {
-            "value": 3,
+            "value": mock_stress,
             "scale_max": 10
         },
         "physiological_load": {
-            "value": 72,
-            "category": "high"
+            "value": mock_physio,
+            "category": physio_category
         },
-        "mismatch": {
-            "state": "high_body_low_perceived",
-            "label": "Body under load"
-        },
+        "mismatch": mismatch_result,
         "confidence": {
             "level": "moderate"
         },
@@ -61,26 +99,20 @@ def get_today_profile(user_id: str):
         ]
     }
 
+
 @app.get("/profiles/{user_id}/timeline")
-def get_timeline(user_id: str, month: Optional[str] = None, year: Optional[str] = None):
-    
-    all_data = [
-        {"date": "2026-07-15", "physiological_load": 30, "reported_stress": 2}, # July
-        {"date": "2026-08-21", "physiological_load": 40, "reported_stress": 4}, # August
-        {"date": "2026-08-22", "physiological_load": 55, "reported_stress": 5}, # August
-        {"date": "2026-08-23", "physiological_load": 80, "reported_stress": 3}, # August
-    ]
-    
-    filtered_data = all_data
-    
-    if year and month:
-        target_prefix = f"{year}-{month}" 
-        filtered_data = [d for d in all_data if d["date"].startswith(target_prefix)]
-        
+def get_timeline(user_id: str):
     return {
         "user_id": user_id,
-        "timeline": filtered_data
+        "timeline": [
+            {"date": "2026-08-21", "physiological_load": 40, "reported_stress": 4},
+            {"date": "2026-08-22", "physiological_load": 55, "reported_stress": 5},
+            {"date": "2026-08-23", "physiological_load": 80, "reported_stress": 3},
+            {"date": "2026-08-24", "physiological_load": 65, "reported_stress": 7},
+            {"date": "2026-08-25", "physiological_load": 72, "reported_stress": 3}
+        ]
     }
+
 
 @app.post("/checkins")
 def submit_checkin(payload: CheckInRequest):
