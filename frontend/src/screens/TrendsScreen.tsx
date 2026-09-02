@@ -1,18 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-const DAYS = [
-  { day: "Mon", stress: 4, load: 5 },
-  { day: "Tue", stress: 6, load: 6 },
-  { day: "Wed", stress: 7, load: 8 },
-  { day: "Thu", stress: 3, load: 7 },
-  { day: "Fri", stress: 5, load: 5 },
-  { day: "Sat", stress: 2, load: 4 },
-  { day: "Sun", stress: 3, load: 7 },
-];
-
-// Mismatch = load - stress > 2
-function isMismatch(d: (typeof DAYS)[0]) {
-  return d.load - d.stress > 2;
+interface TimelinePoint {
+  date: string;
+  day?: string;
+  physiological_load: number;
+  reported_stress: number;
+  stress: number;
+  load: number;
 }
 
 const W = 300;
@@ -21,25 +15,80 @@ const PAD = { left: 20, right: 10, top: 8, bottom: 4 };
 const PLOT_W = W - PAD.left - PAD.right;
 const PLOT_H = H - PAD.top - PAD.bottom;
 
-function toX(i: number) {
-  return PAD.left + (i / (DAYS.length - 1)) * PLOT_W;
-}
-function toY(v: number) {
-  return PAD.top + PLOT_H - (v / 10) * PLOT_H;
-}
-function polyline(key: "stress" | "load") {
-  return DAYS.map((d, i) => `${toX(i)},${toY(d[key])}`).join(" ");
+function isMismatch(d: TimelinePoint) {
+  return d.load - d.stress > 2;
 }
 
 export default function TrendsScreen() {
+  const [data, setData] = useState<TimelinePoint[]>([]);
+  const [loading, setLoading] = useState(true);
   const [hovered, setHovered] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch("http://localhost:8000/profiles/demo01/timeline")
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to load timeline");
+        return res.json();
+      })
+      .then((json) => {
+        const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        const formatted = json.timeline.map((item: any) => {
+          const dt = new Date(item.date);
+          const dayName = isNaN(dt.getTime()) ? item.date.slice(-2) : weekdays[dt.getUTCDay()];
+          return {
+            ...item,
+            day: dayName,
+            stress: item.reported_stress,
+            // Normalize backend's 0-100 physio load to 0-10 for chart scale
+            load: Math.round(item.physiological_load / 10),
+          };
+        });
+        setData(formatted);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error(err);
+        setLoading(false);
+      });
+  }, []);
+
+  function toX(i: number) {
+    if (data.length <= 1) return PAD.left;
+    return PAD.left + (i / (data.length - 1)) * PLOT_W;
+  }
+
+  function toY(v: number) {
+    return PAD.top + PLOT_H - (v / 10) * PLOT_H;
+  }
+
+  function polyline(key: "stress" | "load") {
+    return data.map((d, i) => `${toX(i)},${toY(d[key])}`).join(" ");
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-12 text-[#888880] font-mono text-xs">
+        Loading biometric trends...
+      </div>
+    );
+  }
+
+  if (!data.length) {
+    return (
+      <div className="p-6 text-sm text-[#e85d3a] font-mono">
+        No timeline data available.
+      </div>
+    );
+  }
+
+  const mismatchCount = data.filter(isMismatch).length;
 
   return (
     <div className="px-6 py-4 space-y-5">
       {/* Header */}
       <div>
         <p style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] tracking-[0.2em] uppercase text-[#888880]">
-          Past 7 days
+          Past {data.length} recorded days
         </p>
         <h1 style={{ fontFamily: "var(--font-display)" }} className="text-2xl font-light text-[#f2f0ec] mt-0.5">
           Trends
@@ -55,7 +104,6 @@ export default function TrendsScreen() {
 
       {/* Chart */}
       <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4">
-        {/* Y-axis labels */}
         <div className="flex gap-3">
           <div className="flex flex-col justify-between" style={{ height: H }}>
             {[10, 7, 5, 2, 0].map((v) => (
@@ -80,7 +128,7 @@ export default function TrendsScreen() {
             ))}
 
             {/* Mismatch zones */}
-            {DAYS.map((d, i) =>
+            {data.map((d, i) =>
               isMismatch(d) ? (
                 <rect
                   key={i}
@@ -117,7 +165,7 @@ export default function TrendsScreen() {
             />
 
             {/* Data points + hover */}
-            {DAYS.map((d, i) => (
+            {data.map((d, i) => (
               <g key={i}>
                 <circle cx={toX(i)} cy={toY(d.load)} r={3} fill="#e8a23a" />
                 <circle cx={toX(i)} cy={toY(d.stress)} r={3} fill="#4fb89a" />
@@ -168,7 +216,7 @@ export default function TrendsScreen() {
             ))}
 
             {/* X-axis labels */}
-            {DAYS.map((d, i) => (
+            {data.map((d, i) => (
               <text
                 key={i}
                 x={toX(i)}
@@ -190,20 +238,14 @@ export default function TrendsScreen() {
         <InsightCard
           icon="⚠️"
           color="#e85d3a"
-          title="3 mismatch days this week"
-          body="Thu and Sun show body load significantly above perceived stress. Sleep quality was lowest on those nights."
+          title={`${mismatchCount} mismatch days detected`}
+          body="Discrepancies indicate days where your physical recovery markers were under stress while perceived levels remained low."
         />
         <InsightCard
-          icon="📉"
-          color="#e8a23a"
-          title="HRV trending down"
-          body="Your HRV has dropped 18% over the past 4 days. Consider a lighter schedule tomorrow."
-        />
-        <InsightCard
-          icon="✓"
+          icon="📈"
           color="#4fb89a"
-          title="Sat recovery day worked"
-          body="Saturday's low stress and low body load correlates with 7.4 h sleep and no logged stressors."
+          title="Live synchronization active"
+          body="All trend plots reflect recorded endpoint inputs directly from the MindWatch API."
         />
       </div>
     </div>

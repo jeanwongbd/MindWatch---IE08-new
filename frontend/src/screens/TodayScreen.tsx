@@ -1,8 +1,34 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface Props {
   onCheckIn: () => void;
   onWhy: () => void;
+}
+
+interface TodayProfileResponse {
+  user_id: string;
+  date: string;
+  reported_stress: {
+    value: number;
+    scale_max: number;
+  };
+  physiological_load: {
+    value: number;
+    category: string;
+  };
+  mismatch: {
+    state: string;
+    label: string;
+    description: string;
+  };
+  confidence: {
+    level: string;
+  };
+  contributors: Array<{
+    feature: string;
+    direction: string;
+    description: string;
+  }>;
 }
 
 function stressColor(v: number) {
@@ -12,15 +38,8 @@ function stressColor(v: number) {
 }
 
 function loadColor(v: number) {
-  if (v <= 3) return "#4fb89a";
-  if (v <= 6) return "#e8a23a";
+  if (v < 50) return "#4fb89a";
   return "#e85d3a";
-}
-
-function loadLabel(v: number) {
-  if (v <= 3) return "Lower than usual";
-  if (v <= 6) return "Around baseline";
-  return "Higher than usual";
 }
 
 function stressLabel(v: number) {
@@ -30,10 +49,47 @@ function stressLabel(v: number) {
 }
 
 export default function TodayScreen({ onCheckIn, onWhy }: Props) {
-  const [stress, setStress] = useState(3);
-  const [load, setLoad] = useState(7);
+  const [data, setData] = useState<TodayProfileResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const mismatch = load - stress > 2;
+  // Fetch backend today profile on component mount
+  useEffect(() => {
+    fetch("http://localhost:8000/profiles/demo01/today")
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to reach MindWatch API");
+        return res.json();
+      })
+      .then((json: TodayProfileResponse) => {
+        setData(json);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error(err);
+        setError(err.message);
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-12 text-[#888880]">
+        Loading today's biometric profile...
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="p-6 text-sm text-[#e85d3a]">
+        Could not connect to FastAPI server at localhost:8000. Is Uvicorn running?
+      </div>
+    );
+  }
+
+  const stress = data.reported_stress.value;
+  const load = data.physiological_load.value;
+  const isMismatch = data.mismatch.state.includes("mismatch") || data.mismatch.state === "high_body_low_perceived";
 
   return (
     <div className="px-6 py-4 space-y-5">
@@ -41,7 +97,7 @@ export default function TodayScreen({ onCheckIn, onWhy }: Props) {
       <div className="flex items-baseline justify-between">
         <div>
           <p style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] tracking-[0.2em] uppercase text-[#888880]">
-            Tuesday, Aug 26
+            {data.date}
           </p>
           <h1 style={{ fontFamily: "var(--font-display)" }} className="text-2xl font-light text-[#f2f0ec] mt-0.5">
             Good morning
@@ -71,28 +127,12 @@ export default function TodayScreen({ onCheckIn, onWhy }: Props) {
           <p style={{ fontFamily: "var(--font-mono)", color: stressColor(stress) }} className="text-[10px] transition-colors duration-200">
             {stressLabel(stress)}
           </p>
-          <input
-            type="range"
-            min={0}
-            max={10}
-            value={stress}
-            onChange={(e) => setStress(Number(e.target.value))}
-            className="w-full h-1 rounded-full appearance-none cursor-pointer"
-            style={{
-              background: `linear-gradient(to right, ${stressColor(stress)} ${stress * 10}%, #2a2a2a ${stress * 10}%)`,
-              accentColor: stressColor(stress),
-            }}
-          />
-          <div className="flex justify-between">
-            <span style={{ fontFamily: "var(--font-mono)" }} className="text-[9px] text-[#555550]">0</span>
-            <span style={{ fontFamily: "var(--font-mono)" }} className="text-[9px] text-[#555550]">10</span>
-          </div>
         </div>
 
         {/* MY BODY */}
         <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4 space-y-3">
           <p style={{ fontFamily: "var(--font-mono)" }} className="text-[9px] tracking-[0.2em] uppercase text-[#888880]">
-            My body
+            My body (Load)
           </p>
           <div className="flex items-end gap-1">
             <span
@@ -102,42 +142,26 @@ export default function TodayScreen({ onCheckIn, onWhy }: Props) {
               {load}
             </span>
             <span style={{ fontFamily: "var(--font-display)" }} className="text-lg text-[#888880] mb-1.5">
-              /10
+              /100
             </span>
           </div>
           <p style={{ fontFamily: "var(--font-mono)", color: loadColor(load) }} className="text-[10px] transition-colors duration-200">
-            {loadLabel(load)}
+            {data.physiological_load.category === "high" ? "Higher than usual" : "Around baseline"}
           </p>
-          <input
-            type="range"
-            min={0}
-            max={10}
-            value={load}
-            onChange={(e) => setLoad(Number(e.target.value))}
-            className="w-full h-1 rounded-full appearance-none cursor-pointer"
-            style={{
-              background: `linear-gradient(to right, ${loadColor(load)} ${load * 10}%, #2a2a2a ${load * 10}%)`,
-              accentColor: loadColor(load),
-            }}
-          />
-          <div className="flex justify-between">
-            <span style={{ fontFamily: "var(--font-mono)" }} className="text-[9px] text-[#555550]">0</span>
-            <span style={{ fontFamily: "var(--font-mono)" }} className="text-[9px] text-[#555550]">10</span>
-          </div>
         </div>
       </div>
 
-      {/* Mismatch banner — reactive */}
-      {mismatch && (
+      {/* Mismatch banner — dynamic from FastAPI backend */}
+      {isMismatch && (
         <div className="bg-[#1a1208] border border-[#e8a23a]/30 rounded-2xl p-4">
           <div className="flex items-start gap-3">
             <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-[#e8a23a] flex-shrink-0" />
             <div>
               <p style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] tracking-[0.15em] uppercase text-[#e8a23a] mb-1">
-                Mismatch detected
+                {data.mismatch.label}
               </p>
               <p className="text-[13px] text-[#f2f0ec] leading-snug">
-                Your body is showing higher load than your reported stress suggests.
+                {data.mismatch.description}
               </p>
               <button
                 onClick={onWhy}
@@ -151,12 +175,18 @@ export default function TodayScreen({ onCheckIn, onWhy }: Props) {
         </div>
       )}
 
-      {/* Biometric signals */}
+      {/* Dynamic Biometric Contributors from API */}
       <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl divide-y divide-[#2a2a2a]">
-        <BiometricRow label="Resting HR" value="68" unit="bpm" delta="+5" deltaColor="text-[#e8a23a]" />
-        <BiometricRow label="HRV" value="31" unit="ms" delta="−14%" deltaColor="text-[#e85d3a]" />
-        <BiometricRow label="Sleep" value="5.9" unit="h" delta="−1.3h" deltaColor="text-[#e85d3a]" />
-        <BiometricRow label="Respiratory" value="15.2" unit="rpm" delta="Baseline" deltaColor="text-[#4fb89a]" />
+        {data.contributors.map((c, idx) => (
+          <div key={idx} className="flex items-center justify-between px-4 py-3">
+            <span style={{ fontFamily: "var(--font-mono)" }} className="text-[11px] text-[#888880] uppercase tracking-wide">
+              {c.feature}
+            </span>
+            <span style={{ fontFamily: "var(--font-mono)" }} className="text-[11px] text-[#e85d3a]">
+              {c.description}
+            </span>
+          </div>
+        ))}
       </div>
 
       {/* CTA */}
@@ -167,25 +197,6 @@ export default function TodayScreen({ onCheckIn, onWhy }: Props) {
       >
         Log today's stress
       </button>
-    </div>
-  );
-}
-
-function BiometricRow({
-  label, value, unit, delta, deltaColor,
-}: {
-  label: string; value: string; unit: string; delta: string; deltaColor: string;
-}) {
-  return (
-    <div className="flex items-center justify-between px-4 py-3">
-      <span style={{ fontFamily: "var(--font-mono)" }} className="text-[11px] text-[#888880] tracking-wide">
-        {label}
-      </span>
-      <div className="flex items-baseline gap-2">
-        <span className="text-[15px] text-[#f2f0ec] font-medium">{value}</span>
-        <span style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] text-[#555550]">{unit}</span>
-        <span style={{ fontFamily: "var(--font-mono)" }} className={`text-[10px] ${deltaColor}`}>{delta}</span>
-      </div>
     </div>
   );
 }

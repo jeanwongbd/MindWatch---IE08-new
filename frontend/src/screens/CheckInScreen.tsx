@@ -18,6 +18,8 @@ interface Props {
 export default function CheckInScreen({ onDone }: Props) {
   const [stress, setStress] = useState(3);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   function toggle(tag: string) {
     setSelected((prev) => {
@@ -25,6 +27,40 @@ export default function CheckInScreen({ onDone }: Props) {
       next.has(tag) ? next.delete(tag) : next.add(tag);
       return next;
     });
+  }
+
+  async function handleSave() {
+    setIsSubmitting(true);
+    setErrorMsg(null);
+
+    const payload = {
+      user_id: "demo01",
+      stress: stress,
+      context: Array.from(selected),
+      notes: null,
+    };
+
+    try {
+      const response = await fetch("http://localhost:8000/checkins", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server returned ${response.status}`);
+      }
+
+      // Check-in saved successfully, return to Today tab
+      onDone();
+    } catch (err: any) {
+      console.error("Failed to submit check-in:", err);
+      setErrorMsg("Failed to connect to backend. Is FastAPI running?");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   const stressColor =
@@ -117,22 +153,21 @@ export default function CheckInScreen({ onDone }: Props) {
         </div>
       </div>
 
-      {/* Body status reminder */}
-      <div className="bg-[#1a1208] border border-[#e8a23a]/20 rounded-xl px-4 py-3 flex items-center gap-3">
-        <div className="w-1 h-8 rounded-full bg-[#e8a23a] flex-shrink-0" />
-        <p className="text-[12px] text-[#888880] leading-snug">
-          Your body is showing load{" "}
-          <span className="text-[#e8a23a]">higher than usual</span> today.
+      {/* Error notification if backend is unreachable */}
+      {errorMsg && (
+        <p className="text-xs text-[#e85d3a] text-center font-mono">
+          {errorMsg}
         </p>
-      </div>
+      )}
 
       {/* Submit */}
       <button
-        onClick={onDone}
-        className="w-full py-3.5 bg-[#f2f0ec] text-[#0d0d0d] rounded-2xl hover:opacity-90 active:opacity-80 transition-opacity"
+        onClick={handleSave}
+        disabled={isSubmitting}
+        className="w-full py-3.5 bg-[#f2f0ec] text-[#0d0d0d] rounded-2xl hover:opacity-90 active:opacity-80 transition-opacity disabled:opacity-50"
         style={{ fontFamily: "var(--font-body)", fontWeight: 500 }}
       >
-        Save check-in
+        {isSubmitting ? "Saving..." : "Save check-in"}
       </button>
     </div>
   );
