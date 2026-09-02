@@ -3,8 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field #BaseModel blocks wrong data type input by frontend
 from typing import List, Optional #blocks data value that dont meet requirement. If frontend forget to send, we use the default value.
 
-
-app = FastAPI( #creates fastapi instance
+app = FastAPI(
     title="MindWatch API",
     description="Backend service for physiological load and stress mismatch monitoring.",
     version="1.0.0"
@@ -17,6 +16,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# In-memory dictionary to hold submitted user check-ins
+latest_checkins = {}
 
 class CheckInRequest(BaseModel): #blueprint of frontend response
     user_id: str
@@ -56,8 +58,8 @@ def classify_mismatch(physio_load: int, reported_stress: int):
         }
 
 
-@app.get("/health")
-def health_check(): #to check if backend running
+@app.get("/health") #to check if backend running
+def health_check():
     return {"status": "online", "version": "1.0.0"}
 
 
@@ -65,16 +67,19 @@ def health_check(): #to check if backend running
 def get_today_profile(
     user_id: str,
     mock_physio: int = Query(72, ge=0, le=100, description="Test value for physiological load"),
-    mock_stress: int = Query(3, ge=0, le=10, description="Test value for reported stress")
+    mock_stress: int = Query(3, ge=0, le=10, description="Default value if no check-in logged")
 ):
-    mismatch_result = classify_mismatch(physio_load=mock_physio, reported_stress=mock_stress)
+    # Use the submitted stress if available for this user, otherwise use mock_stress
+    active_stress = latest_checkins.get(user_id, {}).get("stress", mock_stress)
+
+    mismatch_result = classify_mismatch(physio_load=mock_physio, reported_stress=active_stress)
     physio_category = "high" if mock_physio >= 50 else "low"
 
     return {
         "user_id": user_id,
         "date": "2026-08-25",
         "reported_stress": {
-            "value": mock_stress,
+            "value": active_stress,
             "scale_max": 10
         },
         "physiological_load": {
@@ -116,6 +121,8 @@ def get_timeline(user_id: str):
 
 @app.post("/checkins")
 def submit_checkin(payload: CheckInRequest):
+    # Save the submitted check-in to memory using model_dump() (or .dict())
+    latest_checkins[payload.user_id] = payload.model_dump()
     return {
         "success": True,
         "message": "Check-in successfully recorded",
