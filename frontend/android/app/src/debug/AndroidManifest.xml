@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!--
+    Debug builds talk to a local FastAPI backend over plain HTTP (e.g. http://10.0.2.2:8000
+    in the emulator), which Android blocks by default since API 28. Cleartext traffic is
+    allowed only in the debug variant; release keeps the platform default (HTTPS-only).
+    -->
+    <application android:usesCleartextTraffic="true" />
+</manifest>

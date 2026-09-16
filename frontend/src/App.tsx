@@ -20,7 +20,7 @@ export default function App() {
   return (
     <div
       style={{ fontFamily: "var(--font-body)" }}
-      className="min-h-screen bg-[#0d0d0d] flex items-center justify-center p-4"
+      className="h-screen bg-[#0d0d0d] flex items-center justify-center p-4 overflow-hidden"
     >
       {/* Phone shell */}
       <div className="relative w-[375px] h-[812px] bg-[#0d0d0d] rounded-[44px] overflow-hidden border border-[#2a2a2a] shadow-[0_0_80px_rgba(0,0,0,0.8)] flex flex-col">

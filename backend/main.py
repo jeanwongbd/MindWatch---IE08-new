@@ -1,7 +1,8 @@
 from fastapi import FastAPI, Query #Query allows backend to read, double-check, and use the extra filter settings (?month=08)
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field #BaseModel blocks wrong data type input by frontend
-from typing import List, Optional #blocks data value that dont meet requirement. If frontend forget to send, we use the default value.
+from typing import Dict, List, Optional #blocks data value that dont meet requirement. If frontend forget to send, we use the default value.
+from datetime import date
 
 app = FastAPI(
     title="MindWatch API",
@@ -17,8 +18,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# In-memory dictionary to hold submitted user check-ins
+# In-memory dictionary to hold each user's most recent check-in (used by /today)
 latest_checkins = {}
+
+# In-memory per-user check-in history, keyed by user_id -> {date: check-in record}.
+# One entry per calendar date, matching the V1 contract of one check-in per participant-day.
+checkin_history: Dict[str, Dict[str, dict]] = {}
+
+# Seed/demo timeline used before any real check-ins have been submitted for a user.
+DEMO_TIMELINE_SEED = [
+    {"date": "2026-08-21", "physiological_load": 40, "reported_stress": 4},
+    {"date": "2026-08-22", "physiological_load": 55, "reported_stress": 5},
+    {"date": "2026-08-23", "physiological_load": 80, "reported_stress": 3},
+    {"date": "2026-08-24", "physiological_load": 65, "reported_stress": 7},
+    {"date": "2026-08-25", "physiological_load": 72, "reported_stress": 3},
+]
 
 class CheckInRequest(BaseModel): #blueprint of frontend response
     user_id: str
@@ -106,23 +120,40 @@ def get_today_profile(
 
 
 @app.get("/profiles/{user_id}/timeline")
-def get_timeline(user_id: str):
+def get_timeline(
+    user_id: str,
+    mock_physio: int = Query(72, ge=0, le=100, description="Physiological load used for real check-ins, which don't yet have wearable-derived load data")
+):
+    # Start from the demo seed, then layer in any real check-ins for this user by date
+    # (a real check-in on a seeded date overrides that day's seed entry).
+    by_date = {row["date"]: dict(row) for row in DEMO_TIMELINE_SEED}
+
+    for checkin_date, record in checkin_history.get(user_id, {}).items():
+        by_date[checkin_date] = {
+            "date": checkin_date,
+            "physiological_load": mock_physio,
+            "reported_stress": record["stress"],
+        }
+
+    timeline = sorted(by_date.values(), key=lambda row: row["date"])
+
     return {
         "user_id": user_id,
-        "timeline": [
-            {"date": "2026-08-21", "physiological_load": 40, "reported_stress": 4},
-            {"date": "2026-08-22", "physiological_load": 55, "reported_stress": 5},
-            {"date": "2026-08-23", "physiological_load": 80, "reported_stress": 3},
-            {"date": "2026-08-24", "physiological_load": 65, "reported_stress": 7},
-            {"date": "2026-08-25", "physiological_load": 72, "reported_stress": 3}
-        ]
+        "timeline": timeline
     }
 
 
 @app.post("/checkins")
 def submit_checkin(payload: CheckInRequest):
-    # Save the submitted check-in to memory using model_dump() (or .dict())
-    latest_checkins[payload.user_id] = payload.model_dump()
+    record = payload.model_dump()
+    today = date.today().isoformat()
+    record["date"] = today
+
+    # Save as the user's latest check-in (used by /today) ...
+    latest_checkins[payload.user_id] = record
+    # ... and as today's entry in their history (used by /timeline).
+    checkin_history.setdefault(payload.user_id, {})[today] = record
+
     return {
         "success": True,
         "message": "Check-in successfully recorded",
