@@ -41,10 +41,8 @@ for participant in participants:
  
 if os.path.exists(path):
   df = pd.read_csv(path)
- 
-df["participant_id"] = participant
- 
-all_daily_questions.append(df)
+  df["participant_id"] = participant
+  all_daily_questions.append(df)
  
 daily_questions = pd.concat(all_daily_questions, ignore_index=True)
  
