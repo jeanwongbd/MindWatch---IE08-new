@@ -9,16 +9,15 @@ import pandas as pd
 # STEP 2: FIND PARTICIPANTS
 # ============================================
  
-DATASET_PATH = "data/raw/SSAQS"
+DATASET_PATH = "data/raw"
  
 participants = []
  
 for item in os.listdir(DATASET_PATH):
- 
-path = os.path.join(DATASET_PATH, item)
+  path = os.path.join(DATASET_PATH, item)
  
 if os.path.isdir(path):
-participants.append(item)
+  participants.append(item)
  
 print(participants)
  
@@ -27,8 +26,7 @@ print(participants)
 # ============================================
  
 for participant in participants:
- 
-daily_questions_path = (f"data/raw/SSAQS/{participant}/daily_questions.csv")
+  daily_questions_path = (f"data/raw/SSAQS/{participant}/daily_questions.csv")
  
 print(daily_questions_path)
  
@@ -39,12 +37,10 @@ print(daily_questions_path)
 all_daily_questions = []
  
 for participant in participants:
- 
-path = (f"data/raw/SSAQS/{participant}/daily_questions.csv")
+  path = (f"data/raw/SSAQS/{participant}/daily_questions.csv")
  
 if os.path.exists(path):
- 
-df = pd.read_csv(path)
+  df = pd.read_csv(path)
  
 df["participant_id"] = participant
  
@@ -64,7 +60,7 @@ daily_questions = daily_questions.drop_duplicates()
  
 # convert timestamp to date
  
-daily_questions["date"] = pd.to_datetime(daily_questions["timestamp"], unit="s").dt.date
+daily_questions["date"] = pd.to_datetime(daily_questions["timeStampStop"], unit="s").dt.date
  
 # ============================================
 # STEP 7: SAVE
