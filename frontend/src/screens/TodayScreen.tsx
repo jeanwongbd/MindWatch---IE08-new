@@ -31,6 +31,9 @@ interface TodayProfileResponse {
   }>;
 }
 
+// Set base API target (using your local Wi-Fi IP)
+const API_BASE_URL = "http://10.91.155.190:8000";
+
 function stressColor(v: number) {
   if (v <= 3) return "#4fb89a";
   if (v <= 6) return "#e8a23a";
@@ -55,7 +58,7 @@ export default function TodayScreen({ onCheckIn, onWhy }: Props) {
 
   // Fetch backend today profile on component mount
   useEffect(() => {
-    fetch("http://localhost:8000/profiles/demo01/today")
+    fetch(`${API_BASE_URL}/profiles/p01/today`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to reach MindWatch API");
         return res.json();
@@ -82,24 +85,32 @@ export default function TodayScreen({ onCheckIn, onWhy }: Props) {
   if (error || !data) {
     return (
       <div className="p-6 text-sm text-[#e85d3a]">
-        Could not connect to FastAPI server at localhost:8000. Is Uvicorn running?
+        Could not connect to FastAPI server at {API_BASE_URL}. Is Uvicorn running?
       </div>
     );
   }
 
   const stress = data.reported_stress.value;
   const load = data.physiological_load.value;
-  const isMismatch = data.mismatch.state.includes("mismatch") || data.mismatch.state === "high_body_low_perceived";
+  const isMismatch =
+    data.mismatch.state.includes("mismatch") ||
+    data.mismatch.state === "high_body_low_perceived";
 
   return (
     <div className="px-6 py-4 space-y-5">
       {/* Header */}
       <div className="flex items-baseline justify-between">
         <div>
-          <p style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] tracking-[0.2em] uppercase text-[#888880]">
+          <p
+            style={{ fontFamily: "var(--font-mono)" }}
+            className="text-[10px] tracking-[0.2em] uppercase text-[#888880]"
+          >
             {data.date}
           </p>
-          <h1 style={{ fontFamily: "var(--font-display)" }} className="text-2xl font-light text-[#f2f0ec] mt-0.5">
+          <h1
+            style={{ fontFamily: "var(--font-display)" }}
+            className="text-2xl font-light text-[#f2f0ec] mt-0.5"
+          >
             Good morning
           </h1>
         </div>
@@ -110,43 +121,77 @@ export default function TodayScreen({ onCheckIn, onWhy }: Props) {
       <div className="grid grid-cols-2 gap-3">
         {/* HOW I FEEL */}
         <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4 space-y-3">
-          <p style={{ fontFamily: "var(--font-mono)" }} className="text-[9px] tracking-[0.2em] uppercase text-[#888880]">
+          <p
+            style={{ fontFamily: "var(--font-mono)" }}
+            className="text-[9px] tracking-[0.2em] uppercase text-[#888880]"
+          >
             How I feel
           </p>
           <div className="flex items-end gap-1">
             <span
-              style={{ fontFamily: "var(--font-display)", lineHeight: 1, color: stressColor(stress) }}
+              style={{
+                fontFamily: "var(--font-display)",
+                lineHeight: 1,
+                color: stressColor(stress),
+              }}
               className="text-[48px] font-light transition-colors duration-200"
             >
               {stress}
             </span>
-            <span style={{ fontFamily: "var(--font-display)" }} className="text-lg text-[#888880] mb-1.5">
+            <span
+              style={{ fontFamily: "var(--font-display)" }}
+              className="text-lg text-[#888880] mb-1.5"
+            >
               /10
             </span>
           </div>
-          <p style={{ fontFamily: "var(--font-mono)", color: stressColor(stress) }} className="text-[10px] transition-colors duration-200">
+          <p
+            style={{
+              fontFamily: "var(--font-mono)",
+              color: stressColor(stress),
+            }}
+            className="text-[10px] transition-colors duration-200"
+          >
             {stressLabel(stress)}
           </p>
         </div>
 
         {/* MY BODY */}
         <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4 space-y-3">
-          <p style={{ fontFamily: "var(--font-mono)" }} className="text-[9px] tracking-[0.2em] uppercase text-[#888880]">
+          <p
+            style={{ fontFamily: "var(--font-mono)" }}
+            className="text-[9px] tracking-[0.2em] uppercase text-[#888880]"
+          >
             My body (Load)
           </p>
           <div className="flex items-end gap-1">
             <span
-              style={{ fontFamily: "var(--font-display)", lineHeight: 1, color: loadColor(load) }}
+              style={{
+                fontFamily: "var(--font-display)",
+                lineHeight: 1,
+                color: loadColor(load),
+              }}
               className="text-[48px] font-light transition-colors duration-200"
             >
               {load}
             </span>
-            <span style={{ fontFamily: "var(--font-display)" }} className="text-lg text-[#888880] mb-1.5">
+            <span
+              style={{ fontFamily: "var(--font-display)" }}
+              className="text-lg text-[#888880] mb-1.5"
+            >
               /100
             </span>
           </div>
-          <p style={{ fontFamily: "var(--font-mono)", color: loadColor(load) }} className="text-[10px] transition-colors duration-200">
-            {data.physiological_load.category === "high" ? "Higher than usual" : "Around baseline"}
+          <p
+            style={{
+              fontFamily: "var(--font-mono)",
+              color: loadColor(load),
+            }}
+            className="text-[10px] transition-colors duration-200"
+          >
+            {data.physiological_load.category === "high"
+              ? "Higher than usual"
+              : "Around baseline"}
           </p>
         </div>
       </div>
@@ -157,7 +202,10 @@ export default function TodayScreen({ onCheckIn, onWhy }: Props) {
           <div className="flex items-start gap-3">
             <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-[#e8a23a] flex-shrink-0" />
             <div>
-              <p style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] tracking-[0.15em] uppercase text-[#e8a23a] mb-1">
+              <p
+                style={{ fontFamily: "var(--font-mono)" }}
+                className="text-[10px] tracking-[0.15em] uppercase text-[#e8a23a] mb-1"
+              >
                 {data.mismatch.label}
               </p>
               <p className="text-[13px] text-[#f2f0ec] leading-snug">
@@ -178,11 +226,20 @@ export default function TodayScreen({ onCheckIn, onWhy }: Props) {
       {/* Dynamic Biometric Contributors from API */}
       <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl divide-y divide-[#2a2a2a]">
         {data.contributors.map((c, idx) => (
-          <div key={idx} className="flex items-center justify-between px-4 py-3">
-            <span style={{ fontFamily: "var(--font-mono)" }} className="text-[11px] text-[#888880] uppercase tracking-wide">
+          <div
+            key={idx}
+            className="flex items-center justify-between px-4 py-3"
+          >
+            <span
+              style={{ fontFamily: "var(--font-mono)" }}
+              className="text-[11px] text-[#888880] uppercase tracking-wide"
+            >
               {c.feature}
             </span>
-            <span style={{ fontFamily: "var(--font-mono)" }} className="text-[11px] text-[#e85d3a]">
+            <span
+              style={{ fontFamily: "var(--font-mono)" }}
+              className="text-[11px] text-[#e85d3a]"
+            >
               {c.description}
             </span>
           </div>
