@@ -18,6 +18,8 @@ interface TodayData {
   contributors: Contributor[];
 }
 
+const API_BASE_URL = "http://localhost:8000";
+
 const severityColor = {
   high: "#e85d3a",
   moderate: "#e8a23a",
@@ -47,7 +49,7 @@ export default function WhyScreen({ onBack }: Props) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("http://localhost:8000/profiles/demo01/today")
+    fetch(`${API_BASE_URL}/profiles/p01/today`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load contributor breakdown");
         return res.json();

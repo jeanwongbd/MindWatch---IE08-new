@@ -9,6 +9,8 @@ interface TimelinePoint {
   load: number;
 }
 
+const API_BASE_URL = "http://localhost:8000";
+
 const W = 300;
 const H = 110;
 const PAD = { left: 20, right: 10, top: 8, bottom: 4 };
@@ -25,7 +27,7 @@ export default function TrendsScreen() {
   const [hovered, setHovered] = useState<number | null>(null);
 
   useEffect(() => {
-    fetch("http://localhost:8000/profiles/demo01/timeline")
+    fetch(`${API_BASE_URL}/profiles/p01/timeline`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load timeline");
         return res.json();
@@ -34,7 +36,9 @@ export default function TrendsScreen() {
         const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
         const formatted = json.timeline.map((item: any) => {
           const dt = new Date(item.date);
-          const dayName = isNaN(dt.getTime()) ? item.date.slice(-2) : weekdays[dt.getUTCDay()];
+          const dayName = isNaN(dt.getTime())
+            ? item.date.slice(-2)
+            : weekdays[dt.getUTCDay()];
           return {
             ...item,
             day: dayName,
@@ -87,10 +91,16 @@ export default function TrendsScreen() {
     <div className="px-6 py-4 space-y-5">
       {/* Header */}
       <div>
-        <p style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] tracking-[0.2em] uppercase text-[#888880]">
+        <p
+          style={{ fontFamily: "var(--font-mono)" }}
+          className="text-[10px] tracking-[0.2em] uppercase text-[#888880]"
+        >
           Past {data.length} recorded days
         </p>
-        <h1 style={{ fontFamily: "var(--font-display)" }} className="text-2xl font-light text-[#f2f0ec] mt-0.5">
+        <h1
+          style={{ fontFamily: "var(--font-display)" }}
+          className="text-2xl font-light text-[#f2f0ec] mt-0.5"
+        >
           Trends
         </h1>
       </div>
@@ -107,7 +117,11 @@ export default function TrendsScreen() {
         <div className="flex gap-3">
           <div className="flex flex-col justify-between" style={{ height: H }}>
             {[10, 7, 5, 2, 0].map((v) => (
-              <span key={v} style={{ fontFamily: "var(--font-mono)" }} className="text-[9px] text-[#555550] leading-none">
+              <span
+                key={v}
+                style={{ fontFamily: "var(--font-mono)" }}
+                className="text-[9px] text-[#555550] leading-none"
+              >
                 {v}
               </span>
             ))}
@@ -170,7 +184,13 @@ export default function TrendsScreen() {
                 <circle cx={toX(i)} cy={toY(d.load)} r={3} fill="#e8a23a" />
                 <circle cx={toX(i)} cy={toY(d.stress)} r={3} fill="#4fb89a" />
                 {isMismatch(d) && (
-                  <circle cx={toX(i)} cy={toY((d.load + d.stress) / 2)} r={4} fill="#e85d3a" fillOpacity={0.7} />
+                  <circle
+                    cx={toX(i)}
+                    cy={toY((d.load + d.stress) / 2)}
+                    r={4}
+                    fill="#e85d3a"
+                    fillOpacity={0.7}
+                  />
                 )}
                 {/* Invisible hover target */}
                 <rect
@@ -204,10 +224,24 @@ export default function TrendsScreen() {
                       stroke="#2a2a2a"
                       strokeWidth="0.5"
                     />
-                    <text x={toX(i)} y={PAD.top + 11} textAnchor="middle" fill="#4fb89a" fontSize={9} fontFamily="DM Mono">
+                    <text
+                      x={toX(i)}
+                      y={PAD.top + 11}
+                      textAnchor="middle"
+                      fill="#4fb89a"
+                      fontSize={9}
+                      fontFamily="DM Mono"
+                    >
                       S {d.stress}
                     </text>
-                    <text x={toX(i)} y={PAD.top + 23} textAnchor="middle" fill="#e8a23a" fontSize={9} fontFamily="DM Mono">
+                    <text
+                      x={toX(i)}
+                      y={PAD.top + 23}
+                      textAnchor="middle"
+                      fill="#e8a23a"
+                      fontSize={9}
+                      fontFamily="DM Mono"
+                    >
                       L {d.load}
                     </text>
                   </g>
@@ -252,15 +286,29 @@ export default function TrendsScreen() {
   );
 }
 
-function LegendDot({ color, label, dot }: { color: string; label: string; dot?: boolean }) {
+function LegendDot({
+  color,
+  label,
+  dot,
+}: {
+  color: string;
+  label: string;
+  dot?: boolean;
+}) {
   return (
     <div className="flex items-center gap-1.5">
       {dot ? (
-        <div className="w-2 h-2 rounded-full" style={{ background: color, opacity: 0.7 }} />
+        <div
+          className="w-2 h-2 rounded-full"
+          style={{ background: color, opacity: 0.7 }}
+        />
       ) : (
         <div className="w-4 h-px rounded-full" style={{ background: color }} />
       )}
-      <span style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] text-[#888880]">
+      <span
+        style={{ fontFamily: "var(--font-mono)" }}
+        className="text-[10px] text-[#888880]"
+      >
         {label}
       </span>
     </div>
@@ -285,7 +333,9 @@ function InsightCard({
         <p className="text-[13px] font-medium" style={{ color }}>
           {title}
         </p>
-        <p className="text-[12px] text-[#888880] leading-relaxed mt-0.5">{body}</p>
+        <p className="text-[12px] text-[#888880] leading-relaxed mt-0.5">
+          {body}
+        </p>
       </div>
     </div>
   );

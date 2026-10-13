@@ -70,24 +70,6 @@ export default function App() {
           </div>
         </div>
       </div>
-
-      {/* Screen label outside phone */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-        {SCREENS.map((s) => (
-          <button
-            key={s}
-            onClick={() => setActive(s)}
-            className={`px-3 py-1 rounded-full text-xs transition-colors ${
-              active === s
-                ? "bg-[#f2f0ec] text-[#0d0d0d]"
-                : "bg-[#1f1f1f] text-[#888880] hover:text-[#f2f0ec]"
-            }`}
-            style={{ fontFamily: "var(--font-mono)" }}
-          >
-            {s}
-          </button>
-        ))}
-      </div>
     </div>
   );
 }

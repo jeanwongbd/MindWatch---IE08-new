@@ -32,7 +32,7 @@ interface TodayProfileResponse {
 }
 
 // Set base API target (using your local Wi-Fi IP)
-const API_BASE_URL = "http://10.91.155.190:8000";
+const API_BASE_URL = "http://localhost:8000";
 
 function stressColor(v: number) {
   if (v <= 3) return "#4fb89a";

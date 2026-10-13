@@ -11,6 +11,8 @@ const CONTEXT_TAGS = [
   "Other",
 ];
 
+const API_BASE_URL = "http://localhost:8000";
+
 interface Props {
   onDone: () => void;
 }
@@ -34,14 +36,14 @@ export default function CheckInScreen({ onDone }: Props) {
     setErrorMsg(null);
 
     const payload = {
-      user_id: "demo01",
+      user_id: "p01",
       stress: stress,
       context: Array.from(selected),
       notes: null,
     };
 
     try {
-      const response = await fetch("http://localhost:8000/checkins", {
+      const response = await fetch(`${API_BASE_URL}/checkins`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -57,7 +59,7 @@ export default function CheckInScreen({ onDone }: Props) {
       onDone();
     } catch (err: any) {
       console.error("Failed to submit check-in:", err);
-      setErrorMsg("Failed to connect to backend. Is FastAPI running?");
+      setErrorMsg(`Failed to connect to backend at ${API_BASE_URL}. Is FastAPI running?`);
     } finally {
       setIsSubmitting(false);
     }
@@ -72,10 +74,16 @@ export default function CheckInScreen({ onDone }: Props) {
     <div className="px-6 py-4 space-y-6">
       {/* Header */}
       <div>
-        <p style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] tracking-[0.2em] uppercase text-[#888880]">
+        <p
+          style={{ fontFamily: "var(--font-mono)" }}
+          className="text-[10px] tracking-[0.2em] uppercase text-[#888880]"
+        >
           Daily check-in
         </p>
-        <h1 style={{ fontFamily: "var(--font-display)" }} className="text-2xl font-light text-[#f2f0ec] mt-0.5">
+        <h1
+          style={{ fontFamily: "var(--font-display)" }}
+          className="text-2xl font-light text-[#f2f0ec] mt-0.5"
+        >
           How stressed do you feel?
         </h1>
       </div>
@@ -84,12 +92,19 @@ export default function CheckInScreen({ onDone }: Props) {
       <div className="flex items-center justify-center py-2">
         <div className="text-center">
           <span
-            style={{ fontFamily: "var(--font-display)", lineHeight: 1, color: stressColor }}
+            style={{
+              fontFamily: "var(--font-display)",
+              lineHeight: 1,
+              color: stressColor,
+            }}
             className="text-[88px] font-light transition-colors duration-300"
           >
             {stress}
           </span>
-          <span style={{ fontFamily: "var(--font-display)" }} className="text-3xl text-[#888880]">
+          <span
+            style={{ fontFamily: "var(--font-display)" }}
+            className="text-3xl text-[#888880]"
+          >
             /10
           </span>
           <p
@@ -118,10 +133,16 @@ export default function CheckInScreen({ onDone }: Props) {
           />
         </div>
         <div className="flex justify-between">
-          <span style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] text-[#555550]">
+          <span
+            style={{ fontFamily: "var(--font-mono)" }}
+            className="text-[10px] text-[#555550]"
+          >
             0
           </span>
-          <span style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] text-[#555550]">
+          <span
+            style={{ fontFamily: "var(--font-mono)" }}
+            className="text-[10px] text-[#555550]"
+          >
             10
           </span>
         </div>
@@ -129,7 +150,10 @@ export default function CheckInScreen({ onDone }: Props) {
 
       {/* Context tags */}
       <div className="space-y-3">
-        <p style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] tracking-[0.2em] uppercase text-[#888880]">
+        <p
+          style={{ fontFamily: "var(--font-mono)" }}
+          className="text-[10px] tracking-[0.2em] uppercase text-[#888880]"
+        >
           Optional context
         </p>
         <div className="flex flex-wrap gap-2">
