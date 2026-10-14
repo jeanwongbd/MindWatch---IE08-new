@@ -221,3 +221,4 @@ __marimo__/
 # Editable local demo state; immutable fixtures and model are committed.
 backend/runtime/
 .venv/
+!frontend/.env.example
