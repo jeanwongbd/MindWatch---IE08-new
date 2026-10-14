@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+
+# Editable local demo state; immutable fixtures and model are committed.
+backend/runtime/
+.venv/

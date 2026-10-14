@@ -1,0 +1,7 @@
+[
+ {"id":"aligned_low","label":"Both below threshold","estimate":25,"stress":20},
+ {"id":"aligned_high","label":"Both at or above threshold","estimate":75,"stress":80},
+ {"id":"estimate_high","label":"Estimate higher, reported lower","estimate":75,"stress":20},
+ {"id":"reported_high","label":"Reported higher, estimate lower","estimate":25,"stress":80},
+ {"id":"missing_wearable","label":"Missing wearable measurements","estimate":null,"stress":40}
+]
