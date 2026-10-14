@@ -1,6 +1,6 @@
 # Demo acceptance record
 
-Executed 14 October 2026 against `submission-demo` implementation checkpoint `6ff0ecd4a6bfd731a6a0e96702f0f2a2c6e0e4b7`. Documentation commits follow that checkpoint. Python 3.12.13 and Node 24.19.0 were used. Core dependency versions are recorded in `backend/requirements.txt` and `backend/demo/profile_metadata.json`.
+Executed 14 October 2026 against `submission-demo` implementation checkpoint `6ff0ecd4a6bfd731a6a0e96702f0f2a2c6e0e4b7`. Documentation commits follow that checkpoint. Python 3.12.14 and Node 24.19.0 were used. Core dependency versions are recorded in `backend/requirements.txt` and `backend/demo/profile_metadata.json`.
 
 **Implementation checks passed. Full browser and visual acceptance remain not run.** Chromium exited before opening a page in the execution environment, including after a successful browser download. Mounted React checks used JSDOM, the actual bundled application, and a real local backend. They verify rendered text, selections, events and data refresh; they do not verify browser layout, drawing, scrolling or touch behavior.
 
