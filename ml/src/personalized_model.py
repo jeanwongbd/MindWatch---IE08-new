@@ -1,5 +1,4 @@
 from pathlib import Path
-
 import joblib
 import numpy as np
 import pandas as pd
@@ -8,7 +7,6 @@ from sklearn.pipeline import make_pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import Ridge
-
 
 FEATURES = [
     "avg_rmssd",
@@ -36,17 +34,13 @@ def _prepare_history(history):
     data = pd.DataFrame(history).copy()
     required = ["date"] + RAW_FEATURES
     missing = [c for c in required if c not in data.columns]
-
     if missing:
         raise ValueError(f"Missing columns: {missing}")
-
     data["date"] = pd.to_datetime(
         data["date"], errors="coerce"
     ).dt.normalize()
-
     for col in RAW_FEATURES:
         data[col] = pd.to_numeric(data[col], errors="coerce")
-
     data = data.dropna(subset=["date"])
     data = data.sort_values("date")
     data = data.drop_duplicates("date", keep="last")
@@ -55,28 +49,22 @@ def _prepare_history(history):
 
 def calibration_status(history):
     data = _prepare_history(history)
-
     if TARGET not in data.columns:
         raise ValueError("Missing stress training labels")
-
     data[TARGET] = pd.to_numeric(
         data[TARGET], errors="coerce"
     )
-
     valid = (
         data[TARGET].between(0, 100)
         & data[RAW_FEATURES].notna().any(axis=1)
     )
-
     count = int(valid.sum())
-
     if count < MIN_SAMPLES:
         status = "collecting"
     elif count < RECOMMENDED_SAMPLES:
         status = "initial_ready"
     else:
         status = "recommended_ready"
-
     return {
         "status": status,
         "valid_samples": count,
@@ -87,19 +75,16 @@ def calibration_status(history):
 
 def train_personalized_model(history, template=None):
     status = calibration_status(history)
-
     if not status["can_train"]:
         raise ValueError(
             f"Need at least {MIN_SAMPLES} valid records; "
             f"found {status['valid_samples']}"
         )
-
     data = _prepare_history(history)
     data[TARGET] = pd.to_numeric(
         data[TARGET], errors="coerce"
     )
-
-    #physiological history only; never uses stress labels.
+    # Physiological history only; never uses stress labels.
     past_hrv = (
         data["avg_rmssd"]
         .shift(1)
@@ -107,24 +92,20 @@ def train_personalized_model(history, template=None):
         .mean()
     )
     data["avg_rmssd_dev"] = data["avg_rmssd"] - past_hrv
-
     valid = (
         data[TARGET].between(0, 100)
         & data[RAW_FEATURES].notna().any(axis=1)
     )
     fit_data = data.loc[valid].copy()
-
     X = fit_data[FEATURES]
     y = fit_data[TARGET]
-
-    #all four model features must have some observed values
+    
+    # All four model features must have some observed values
     missing = [c for c in FEATURES if X[c].notna().sum() == 0]
     if missing:
         raise ValueError(f"No valid observations for: {missing}")
-
     model = clone(template) if template is not None else _template()
     model.fit(X, y)
-
     return {
         "model": model,
         "features": FEATURES.copy(),
@@ -146,33 +127,26 @@ def estimate_stress(
         pd.Series(list(hrv_history), dtype="object"),
         errors="coerce",
     )
-
     current_hrv = pd.to_numeric(
         pd.Series([avg_rmssd]), errors="coerce"
     ).iloc[0]
-
     if history.notna().sum() >= MIN_HRV_HISTORY and pd.notna(current_hrv):
         deviation = float(current_hrv - history.mean())
     else:
         deviation = np.nan
-
     X_today = pd.DataFrame([{
         "avg_rmssd": avg_rmssd,
         "overall_score": overall_score,
         "daily_steps": daily_steps,
         "avg_rmssd_dev": deviation,
     }])
-
     for col in FEATURES:
         X_today[col] = pd.to_numeric(
             X_today[col], errors="coerce"
         )
-
     if X_today[RAW_FEATURES].notna().sum(axis=1).iloc[0] == 0:
         raise ValueError("No physiological measurements provided")
-
     X_today = X_today[trained_user["features"]]
-
     estimate = trained_user["model"].predict(X_today)[0]
     return float(np.clip(estimate, 0, 100))
 

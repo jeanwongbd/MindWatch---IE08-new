@@ -1,299 +1,499 @@
+import json
+import logging
+import math
+import os
+import tempfile
+import threading
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import (
-    List,
-    Optional,
-)  # blocks data value that dont meet requirement. If frontend forget to send, we use the default value.
+from typing import List, Optional, Literal
 
-from fastapi import (  # Query allows backend to read, double-check, and use the extra filter settings (?month=08)
-    FastAPI,
-    Query,
-)
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-import joblib
+from pydantic import BaseModel, Field, StrictInt
 import numpy as np
-import pandas as pd
-from pydantic import (  # BaseModel blocks wrong data type input by frontend
-    BaseModel,
-    Field,
-)
 
-# ---------------------------------------------------------
-# Load Pre-trained Machine Learning Models (V1 Fallback & V2 Template)
-# ---------------------------------------------------------
+logging.basicConfig(level=logging.INFO)
+LOGGER = logging.getLogger("mindwatch")
+
 BASE_DIR = Path(__file__).resolve().parent
-V1_MODEL_PATH = BASE_DIR / "models" / "stress_monitoring_multimodal_v1.joblib"
-V2_MODEL_PATH = BASE_DIR / "models" / "mindwatch_v2.joblib"
+BASE = BASE_DIR
+MODELS_DIR = BASE_DIR / "models"
+DEMO_DIR = BASE_DIR / "demo"
 
-# Load fallback model
-v1_model = joblib.load(V1_MODEL_PATH) if V1_MODEL_PATH.exists() else None
+DEMO_MODEL_PATH = MODELS_DIR / "demo_personal_model.joblib"
+MIN_HRV_HISTORY = 7
 
-# Load V2 package/template
-v2_package = None
-if V2_MODEL_PATH.exists():
-  try:
-    loaded = joblib.load(V2_MODEL_PATH)
-    v2_package = (
-        loaded.get("model_template", loaded)
-        if isinstance(loaded, dict)
-        else loaded
+
+def comparison(estimate, reported):
+    if estimate is None or reported is None:
+        return {
+            "state": None,
+            "label": "Not enough data",
+            "description": "A comparison needs both values.",
+        }
+    if estimate < 50 and reported < 50:
+        state, label, description = (
+            "aligned_low",
+            "Both below threshold",
+            "Both values are below the demo threshold.",
+        )
+    elif estimate >= 50 and reported >= 50:
+        state, label, description = (
+            "aligned_high",
+            "Both at or above threshold",
+            "Both values are at or above the demo threshold.",
+        )
+    elif estimate >= 50:
+        state, label, description = (
+            "estimate_high_reported_low",
+            "Estimate higher, reported lower",
+            "Your reported stress is lower than the wearable-based estimate.",
+        )
+    else:
+        state, label, description = (
+            "estimate_low_reported_high",
+            "Reported higher, estimate lower",
+            "Your reported stress is higher than the wearable-based estimate.",
+        )
+    return {"state": state, "label": label, "description": description}
+
+
+# ---------------------------------------------------------------------------
+# Replay & Fixture Engine
+# ---------------------------------------------------------------------------
+class Demo:
+    def __init__(self, model_path=None, state_path=None):
+        self.metadata = {
+            "profile_id": "demo_p05",
+            "default_date": "2025-04-21",
+            "replay_dates": [
+                "2025-04-16",
+                "2025-04-17",
+                "2025-04-18",
+                "2025-04-19",
+                "2025-04-20",
+                "2025-04-21",
+                "2025-04-22",
+                "2025-04-23",
+                "2025-04-24",
+                "2025-04-25",
+            ],
+            "limitation": "Provisional retrospective SSAQS daily replay.",
+        }
+        self.records = {}
+        self.scenarios = {}
+
+        meta_file = DEMO_DIR / "profile_metadata.json"
+        if meta_file.exists():
+            try:
+                self.metadata = json.loads(meta_file.read_text())
+            except Exception as e:
+                LOGGER.warning("Could not read profile_metadata.json: %s", e)
+
+        hist_file = DEMO_DIR / "historical_profile.json"
+        if hist_file.exists():
+            try:
+                self.records = {
+                    r["date"]: r for r in json.loads(hist_file.read_text())
+                }
+            except Exception as e:
+                LOGGER.warning("Could not read historical_profile.json: %s", e)
+
+        scen_file = DEMO_DIR / "demo_scenarios.json"
+        if scen_file.exists():
+            try:
+                self.scenarios = {
+                    r["id"]: r for r in json.loads(scen_file.read_text())
+                }
+            except Exception as e:
+                LOGGER.warning("Could not read demo_scenarios.json: %s", e)
+
+        self.profile = self.metadata.get("profile_id", "demo_p05")
+        self.state_path = Path(
+            state_path
+            or os.getenv(
+                "MINDWATCH_STATE_PATH",
+                str(BASE_DIR / "runtime/demo_checkins.json"),
+            )
+        )
+        self.lock = threading.Lock()
+        self.overrides = {}
+        self.state_error = None
+
+        if self.state_path.exists():
+            try:
+                stored = json.loads(self.state_path.read_text())
+                if isinstance(stored, dict):
+                    self.overrides = stored
+            except Exception as exc:
+                self.state_error = str(exc)
+
+        self.trained = None
+        self.model_error = None
+        target_model = Path(
+            model_path
+            if model_path is not None
+            else os.getenv("MINDWATCH_MODEL_PATH", str(DEMO_MODEL_PATH))
+        )
+
+        try:
+            from ml.src.personalized_model import load_personal_model
+
+            if target_model.exists():
+                self.trained = load_personal_model(target_model)
+            else:
+                self.model_error = "Model file not found"
+        except Exception as exc:
+            self.model_error = str(exc)
+
+    def key(self, date: str) -> str:
+        return f"{self.profile}/{date}"
+
+    def persist(self, updated: dict):
+        self.state_path.parent.mkdir(parents=True, exist_ok=True)
+        fd, name = tempfile.mkstemp(
+            dir=self.state_path.parent, prefix="checkins-", suffix=".tmp"
+        )
+        try:
+            with os.fdopen(fd, "w") as stream:
+                json.dump(updated, stream, indent=2, allow_nan=False)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(name, self.state_path)
+        finally:
+            if os.path.exists(name):
+                try:
+                    os.unlink(name)
+                except OSError:
+                    pass
+        self.overrides = updated
+        self.state_error = None
+
+    def response(
+        self,
+        mode: str = "historical_replay",
+        date: Optional[str] = None,
+        scenario: Optional[str] = None,
+    ):
+        if mode == "synthetic_scenario":
+            if scenario not in self.scenarios:
+                raise HTTPException(404, "Unknown synthetic scenario")
+            item = self.scenarios[scenario]
+            value, reported = item.get("estimate"), item.get("stress", 50)
+            comparison_info = comparison(value, reported)
+            return {
+                "user_id": self.profile,
+                "date": None,
+                "mode": mode,
+                "scenario_id": scenario,
+                "source_label": "Synthetic scenario",
+                "scenario_label": item.get("label", "Synthetic Scenario"),
+                "reported_stress": {
+                    "value": reported,
+                    "scale_max": 100,
+                    "normalized_0_100": reported,
+                    "source": "synthetic_fixture",
+                },
+                "physiological_load": {
+                    "value": value if value is not None else 50,
+                    "category": "high" if (value or 0) >= 50 else "low",
+                },
+                "wearable_estimate": {
+                    "value": value,
+                    "scale_max": 100,
+                    "status": "ready"
+                    if value is not None
+                    else "insufficient_data",
+                    "method": "synthetic_fixture",
+                },
+                "mismatch": comparison_info,
+                "comparison": comparison_info,
+                "contributors": [
+                    {
+                        "feature": "sleep",
+                        "direction": "negative",
+                        "description": "Synthetic fixture simulated deficit",
+                    },
+                    {
+                        "feature": "hrv",
+                        "direction": "negative",
+                        "description": "Synthetic fixture simulated autonomic strain",
+                    },
+                ],
+                "measurements": {},
+                "imputed_features": [],
+                "limitation": "Fixed interface fixtures. These values were not generated by Ridge.",
+            }
+
+        date = date or self.metadata.get("default_date", "2025-04-21")
+        if date not in self.records:
+            raise HTTPException(404, "Unknown replay date")
+
+        record = self.records[date]
+        inputs = dict(record.get("measurements", {}))
+        history = record.get("hrv_history", [])
+        avg_rmssd = inputs.get("avg_rmssd")
+        deviation = (
+            (avg_rmssd - sum(history) / len(history))
+            if (len(history) >= MIN_HRV_HISTORY and avg_rmssd is not None)
+            else None
+        )
+
+        value = None
+        imputed_features = []
+
+        if self.trained is None:
+            status = "model_unavailable"
+        elif all(v is None for v in inputs.values()):
+            status = "insufficient_data"
+        else:
+            try:
+                from ml.src.personalized_model import estimate_stress
+
+                value = estimate_stress(
+                    self.trained, **inputs, hrv_history=history
+                )
+                if value is None or not math.isfinite(value):
+                    status = "insufficient_data"
+                    value = None
+                else:
+                    status = "ready"
+                    features_expected = self.trained.get(
+                        "features",
+                        [
+                            "avg_rmssd",
+                            "overall_score",
+                            "daily_steps",
+                            "avg_rmssd_dev",
+                        ],
+                    )
+                    full_meas = {**inputs, "avg_rmssd_dev": deviation}
+                    imputed_features = [
+                        f for f in features_expected if full_meas.get(f) is None
+                    ]
+            except Exception:
+                value = None
+                status = "insufficient_data"
+
+        wearable_val = float(value) if value is not None else None
+        load_val = int(round(wearable_val)) if wearable_val is not None else 50
+
+        with self.lock:
+            override = self.overrides.get(self.key(date))
+
+        raw_stress = record.get("stress", 30)
+        reported = {
+            "value": round(raw_stress / 10),
+            "scale_max": 10,
+            "normalized_0_100": raw_stress,
+            "source": "historical_ssaqs",
+            "context_tags": [],
+        }
+
+        if override:
+            override_val = override["stress"]
+            reported = {
+                "value": override_val,
+                "scale_max": 10,
+                "normalized_0_100": override_val * 10,
+                "source": "demo_checkin",
+                "context_tags": override.get("context_tags", []),
+                "submitted_at": override.get("submitted_at"),
+            }
+
+        comparison_info = comparison(wearable_val, reported["normalized_0_100"])
+
+        contributors = []
+        overall_score = inputs.get("overall_score")
+        if overall_score and overall_score < 75:
+            contributors.append(
+                {
+                    "feature": "sleep",
+                    "direction": "negative",
+                    "description": f"{round((80 - overall_score) / 10, 1)} hrs below usual sleep restoration",
+                }
+            )
+        if deviation is not None and deviation < 0:
+            contributors.append(
+                {
+                    "feature": "hrv",
+                    "direction": "negative",
+                    "description": f"{abs(round(deviation))}% below your usual HRV",
+                }
+            )
+        if not contributors:
+            contributors = [
+                {
+                    "feature": "hrv",
+                    "direction": "positive",
+                    "description": "Within normal baseline variation",
+                },
+                {
+                    "feature": "sleep",
+                    "direction": "positive",
+                    "description": "Optimal overnight recovery duration",
+                },
+            ]
+
+        return {
+            "user_id": self.profile,
+            "date": date,
+            "mode": mode,
+            "source_label": "Historical SSAQS replay",
+            "reported_stress": reported,
+            "original_reported_stress": record.get("stress"),
+            "physiological_load": {
+                "value": load_val,
+                "category": "high" if load_val >= 50 else "low",
+            },
+            "wearable_estimate": {
+                "value": wearable_val,
+                "scale_max": 100,
+                "status": status,
+                "method": "personalized_ridge_v2",
+            },
+            "mismatch": comparison_info,
+            "comparison": comparison_info,
+            "contributors": contributors,
+            "measurements": {**inputs, "avg_rmssd_dev": deviation},
+            "imputed_features": imputed_features,
+            "limitation": self.metadata.get(
+                "limitation", "Calibrated against personal baseline."
+            ),
+        }
+
+
+# ---------------------------------------------------------------------------
+# App Factory & Routes
+# ---------------------------------------------------------------------------
+class CheckInItem(BaseModel):
+    date: str
+    user_id: Optional[str] = "demo_p05"
+    stress: StrictInt = Field(..., ge=0, le=10)
+    context_tags: List[str] = Field(default_factory=list)
+    context: List[str] = Field(default_factory=list)
+    notes: Optional[str] = None
+
+    class Config:
+        extra = "forbid"
+
+
+def create_app(model_path=None, state_path=None):
+    demo = Demo(model_path=model_path, state_path=state_path)
+    app = FastAPI(title="MindWatch Unified API", version="2.5.0")
+    app.state.demo = demo
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
-  except Exception as e:
-    print(f"Warning loading V2 model: {e}")
 
-app = FastAPI(
-    title="MindWatch API",
-    description=(
-        "Backend service for physiological load and stress mismatch"
-        " monitoring."
-    ),
-    version="2.0.0",
-)
+    @app.get("/health")
+    def health():
+        return {
+            "status": "online",
+            "model_ready": demo.trained is not None,
+            "state_ready": demo.state_error is None,
+            "state_error": demo.state_error,
+        }
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+    @app.get("/demo/config")
+    def config():
+        return {
+            **demo.metadata,
+            "scenarios": [
+                {"id": r["id"], "label": r.get("label", r["id"])}
+                for r in demo.scenarios.values()
+            ],
+        }
 
-# In-memory storage for user data
-latest_checkins = {}
-latest_wearables = {}
-user_hrv_history = {}  # Tracks past HRV values per user for baseline deviation
+    @app.get("/today")
+    def today(
+        mode: Literal["historical_replay", "synthetic_scenario"] = "historical_replay",
+        date: Optional[str] = None,
+        scenario: Optional[str] = None,
+    ):
+        return demo.response(mode=mode, date=date, scenario=scenario)
 
+    @app.get("/trends")
+    def trends():
+        replay_dates = demo.metadata.get(
+            "replay_dates", sorted(list(demo.records.keys()))
+        )
+        records = [demo.response(date=d) for d in replay_dates]
+        return {
+            "mode": "historical_replay",
+            "source_label": "Historical SSAQS replay",
+            "records": records,
+            "timeline": [
+                {
+                    "date": r["date"],
+                    "physiological_load": r["physiological_load"]["value"],
+                    "reported_stress": r["reported_stress"]["value"],
+                }
+                for r in records
+            ],
+        }
 
-class CheckInRequest(BaseModel):  # blueprint of frontend response
-  user_id: str
-  stress: int = Field(
-      ..., ge=0, le=10, description="Self-reported stress 0-10"
-  )
-  context: List[str] = []
-  notes: Optional[str] = None
+    @app.post("/checkin")
+    @app.post("/checkins")
+    def checkin(item: CheckInItem):
+        target_date = item.date
+        if target_date not in demo.records:
+            raise HTTPException(404, "Unknown replay date")
 
+        tags = item.context_tags or item.context
+        if any(len(tag) > 80 for tag in tags):
+            raise HTTPException(422, "Context tag too long")
 
-class WearableSyncPayload(BaseModel):  # incoming sync from phone's Health Connect
-  daily_steps: Optional[float] = None
-  overall_score: Optional[float] = None  # Fitbit sleep score
-  deep_sleep_in_minutes: Optional[float] = None
-  avg_rmssd: Optional[float] = None  # Nocturnal HRV (rMSSD)
-  participant_historical_mean: Optional[float] = 50.0
+        with demo.lock:
+            if demo.state_error:
+                raise HTTPException(
+                    503,
+                    "Saved state is unreadable; use Reset demo to restore it.",
+                )
+            updated = {
+                **demo.overrides,
+                demo.key(target_date): {
+                    "profile_id": demo.profile,
+                    "date": target_date,
+                    "stress": item.stress,
+                    "context_tags": tags,
+                    "submitted_at": datetime.now(timezone.utc).isoformat(),
+                },
+            }
+            try:
+                demo.persist(updated)
+            except OSError:
+                raise HTTPException(503, "Could not save check-in")
 
+        return {"saved": True, "record": demo.response(date=target_date)}
 
-def calculate_v2_load(
-    user_id: str,
-    avg_rmssd: Optional[float],
-    overall_score: Optional[float],
-    daily_steps: Optional[float],
-) -> float:
-  """Calculates physiological load using V2 HRV deviation logic."""
-  history = user_hrv_history.get(user_id, [])
+    @app.post("/demo/reset")
+    def reset():
+        with demo.lock:
+            try:
+                demo.persist({})
+            except OSError:
+                raise HTTPException(503, "Could not reset demo")
+        return {
+            "reset": True,
+            "default_date": demo.metadata.get("default_date", "2025-04-21"),
+        }
 
-  # Compute deviation from individual baseline if history exists
-  if len(history) >= 7 and avg_rmssd is not None:
-    hrv_deviation = float(avg_rmssd - np.mean(history))
-  else:
-    hrv_deviation = np.nan
+    @app.get("/profiles/{user_id}/today")
+    def profile_today(user_id: str, date: Optional[str] = None):
+        return demo.response(date=date)
 
-  # Feature dataframe matching Yifan's V2 specification
-  X_today = pd.DataFrame([{
-      "avg_rmssd": avg_rmssd,
-      "overall_score": overall_score,
-      "daily_steps": daily_steps,
-      "avg_rmssd_dev": hrv_deviation,
-  }])
+    @app.get("/profiles/{user_id}/timeline")
+    def profile_timeline(user_id: str):
+        return trends()
 
-  # If V2 pipeline is available, run inference
-  if v2_package is not None and hasattr(v2_package, "predict"):
-    try:
-      pred = v2_package.predict(X_today)[0]
-      return float(np.clip(pred, 0, 100))
-    except Exception:
-      pass
-
-  # Fallback: estimate from V1 model if V2 is untrained for single user
-  if v1_model is not None:
-    X_v1 = pd.DataFrame([{
-        "participant_historical_mean": 50.0,
-        "daily_steps": daily_steps,
-        "overall_score": overall_score,
-        "deep_sleep_in_minutes": 60.0,
-        "avg_rmssd": avg_rmssd,
-    }]).replace({None: np.nan})
-    pred = v1_model.predict(X_v1)[0]
-    return float(np.clip(pred, 0, 100))
-
-  return 50.0
-
-
-def classify_mismatch(physio_load: int, reported_stress: int):
-  # standard thresholds: Physio (0-100, threshold 50), Reported (0-10, threshold 5)
-  is_high_physio = physio_load >= 50
-  is_high_stress = reported_stress >= 5
-
-  if not is_high_physio and not is_high_stress:
-    return {
-        "state": "balanced",
-        "label": "Balanced",
-        "description": (
-            "Your body biometrics and stress check-in are both at calm, normal"
-            " levels."
-        ),
-    }
-  elif is_high_physio and is_high_stress:
-    return {
-        "state": "aligned_high_load",
-        "label": "Aligned High Load",
-        "description": (
-            "Both your body signals and your self-report indicate elevated"
-            " strain."
-        ),
-    }
-  elif is_high_physio and not is_high_stress:
-    return {
-        "state": "high_body_low_perceived",
-        "label": "Body Under Load",
-        "description": (
-            "Your body appears less recovered than usual, although you feel"
-            " relatively calm."
-        ),
-    }
-  else:
-    return {
-        "state": "low_body_high_perceived",
-        "label": "Perceived Stress Mismatch",
-        "description": (
-            "You reported feeling stressed, but your physical recovery signals"
-            " remain stable."
-        ),
-    }
+    return app
 
 
-@app.get("/health")  # to check if backend running
-def health_check():
-  return {"status": "online", "version": "2.0.0"}
-
-
-@app.post("/profiles/{user_id}/sync")
-def sync_wearable(user_id: str, payload: WearableSyncPayload):
-  # 1. Update rolling HRV history for the user
-  if payload.avg_rmssd is not None:
-    if user_id not in user_hrv_history:
-      user_hrv_history[user_id] = []
-    user_hrv_history[user_id].append(payload.avg_rmssd)
-
-  # 2. Run inference using V2 personalized pipeline
-  calculated_load = calculate_v2_load(
-      user_id=user_id,
-      avg_rmssd=payload.avg_rmssd,
-      overall_score=payload.overall_score,
-      daily_steps=payload.daily_steps,
-  )
-
-  # 3. Store the latest calculation for this profile
-  latest_wearables[user_id] = {
-      "physiological_load": round(calculated_load),
-      "raw_metrics": payload.model_dump(),
-      "calibration_status": (
-          "active"
-          if len(user_hrv_history.get(user_id, [])) >= 7
-          else "warming_up"
-      ),
-  }
-
-  return {
-      "success": True,
-      "user_id": user_id,
-      "physiological_load": round(calculated_load),
-      "calibration_status": latest_wearables[user_id]["calibration_status"],
-      "message": "Wearable biometrics synced and processed via V2 model",
-  }
-
-
-@app.get("/profiles/{user_id}/today")
-def get_today_profile(
-    user_id: str,
-    mock_physio: int = Query(
-        72, ge=0, le=100, description="Test value for physiological load"
-    ),
-    mock_stress: int = Query(
-        3, ge=0, le=10, description="Default value if no check-in logged"
-    ),
-):
-  active_physio = latest_wearables.get(user_id, {}).get(
-      "physiological_load", mock_physio
-  )
-  active_stress = latest_checkins.get(user_id, {}).get("stress", mock_stress)
-
-  mismatch_result = classify_mismatch(
-      physio_load=active_physio, reported_stress=active_stress
-  )
-  physio_category = "high" if active_physio >= 50 else "low"
-
-  return {
-      "user_id": user_id,
-      "date": "2026-08-25",
-      "reported_stress": {"value": active_stress, "scale_max": 10},
-      "physiological_load": {
-          "value": active_physio,
-          "category": physio_category,
-      },
-      "mismatch": mismatch_result,
-      "confidence": {"level": "moderate"},
-      "contributors": [
-          {
-              "feature": "sleep",
-              "direction": "negative",
-              "description": "1.3 hours below your usual sleep",
-          },
-          {
-              "feature": "hrv",
-              "direction": "negative",
-              "description": "14% below your usual HRV",
-          },
-      ],
-  }
-
-
-@app.get("/profiles/{user_id}/timeline")
-def get_timeline(user_id: str):
-  return {
-      "user_id": user_id,
-      "timeline": [
-          {
-              "date": "2026-08-21",
-              "physiological_load": 40,
-              "reported_stress": 4,
-          },
-          {
-              "date": "2026-08-22",
-              "physiological_load": 55,
-              "reported_stress": 5,
-          },
-          {
-              "date": "2026-08-23",
-              "physiological_load": 80,
-              "reported_stress": 3,
-          },
-          {
-              "date": "2026-08-24",
-              "physiological_load": 65,
-              "reported_stress": 7,
-          },
-          {
-              "date": "2026-08-25",
-              "physiological_load": 72,
-              "reported_stress": 3,
-          },
-      ],
-  }
-
-
-@app.post("/checkins")
-def submit_checkin(payload: CheckInRequest):
-  latest_checkins[payload.user_id] = payload.model_dump()
-  return {
-      "success": True,
-      "message": "Check-in successfully recorded",
-      "data": payload,
-  }
+app = create_app()

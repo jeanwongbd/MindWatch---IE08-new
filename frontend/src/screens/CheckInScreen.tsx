@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { api, type DemoRecord } from "../api";
 
 const CONTEXT_TAGS = [
   "Exam",
@@ -11,55 +12,90 @@ const CONTEXT_TAGS = [
   "Other",
 ];
 
-const API_BASE_URL = "http://localhost:8000";
-
 interface Props {
+  data?: DemoRecord;
   onDone: () => void;
 }
 
-export default function CheckInScreen({ onDone }: Props) {
-  const [stress, setStress] = useState(3);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+export default function CheckInScreen({ data, onDone }: Props) {
+  // Read-only synthetic scenario mode
+  if (data?.mode === "synthetic_scenario") {
+    return (
+      <div className="px-6 py-6 space-y-4">
+        <div>
+          <p style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] tracking-[0.2em] uppercase text-[#888880]">
+            Demo Fixture
+          </p>
+          <h1 style={{ fontFamily: "var(--font-display)" }} className="text-2xl font-light text-[#f2f0ec] mt-1">
+            Reported Stress
+          </h1>
+        </div>
+        <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 space-y-2">
+          <p className="text-sm text-[#888880]">
+            Synthetic scenarios are read-only fixtures.
+          </p>
+          <p style={{ fontFamily: "var(--font-display)" }} className="text-3xl text-[#4fb89a]">
+            {data.reported_stress?.value ?? 0} <span className="text-sm text-[#888880]">/ 10</span>
+          </p>
+        </div>
+        <button
+          onClick={onDone}
+          className="w-full py-3.5 bg-[#1f1f1f] text-[#f2f0ec] border border-[#2a2a2a] rounded-xl hover:border-[#555550] transition-colors"
+          style={{ fontFamily: "var(--font-mono)", fontSize: "11px" }}
+        >
+          ← Return to Dashboard
+        </button>
+      </div>
+    );
+  }
+
+  const initialStress =
+    data?.reported_stress?.source === "demo_checkin"
+      ? data.reported_stress.value
+      : (data?.reported_stress?.value ?? 3);
+
+  const [stress, setStress] = useState<number>(initialStress);
+  const [tags, setTags] = useState<string[]>(data?.reported_stress?.context_tags || []);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   function toggle(tag: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      next.has(tag) ? next.delete(tag) : next.add(tag);
-      return next;
-    });
+    setTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
   }
 
-  async function handleSave() {
+  async function handleSave(e?: React.FormEvent) {
+    if (e) e.preventDefault();
     setIsSubmitting(true);
     setErrorMsg(null);
 
     const payload = {
+      date: data?.date,
       user_id: "p01",
-      stress: stress,
-      context: Array.from(selected),
-      notes: null,
+      stress,
+      context_tags: tags,
+      context: tags,
     };
 
     try {
-      const response = await fetch(`${API_BASE_URL}/checkins`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Server returned ${response.status}`);
+      if (typeof api === "function") {
+        await api("/checkin", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+      } else {
+        const response = await fetch("http://localhost:8000/checkins", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!response.ok) throw new Error(`Server returned ${response.status}`);
       }
-
-      // Check-in saved successfully, return to Today tab
       onDone();
     } catch (err: any) {
       console.error("Failed to submit check-in:", err);
-      setErrorMsg(`Failed to connect to backend at ${API_BASE_URL}. Is FastAPI running?`);
+      setErrorMsg(err.message || "Failed to connect to backend.");
     } finally {
       setIsSubmitting(false);
     }
@@ -71,19 +107,13 @@ export default function CheckInScreen({ onDone }: Props) {
     stress <= 3 ? "Low" : stress <= 6 ? "Moderate" : stress <= 8 ? "High" : "Very high";
 
   return (
-    <div className="px-6 py-4 space-y-6">
+    <form onSubmit={handleSave} className="px-6 py-4 space-y-6">
       {/* Header */}
       <div>
-        <p
-          style={{ fontFamily: "var(--font-mono)" }}
-          className="text-[10px] tracking-[0.2em] uppercase text-[#888880]"
-        >
-          Daily check-in
+        <p style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] tracking-[0.2em] uppercase text-[#888880]">
+          {data?.date ? `Check-in for ${data.date}` : "Daily check-in"}
         </p>
-        <h1
-          style={{ fontFamily: "var(--font-display)" }}
-          className="text-2xl font-light text-[#f2f0ec] mt-0.5"
-        >
+        <h1 style={{ fontFamily: "var(--font-display)" }} className="text-2xl font-light text-[#f2f0ec] mt-0.5">
           How stressed do you feel?
         </h1>
       </div>
@@ -92,19 +122,12 @@ export default function CheckInScreen({ onDone }: Props) {
       <div className="flex items-center justify-center py-2">
         <div className="text-center">
           <span
-            style={{
-              fontFamily: "var(--font-display)",
-              lineHeight: 1,
-              color: stressColor,
-            }}
+            style={{ fontFamily: "var(--font-display)", lineHeight: 1, color: stressColor }}
             className="text-[88px] font-light transition-colors duration-300"
           >
             {stress}
           </span>
-          <span
-            style={{ fontFamily: "var(--font-display)" }}
-            className="text-3xl text-[#888880]"
-          >
+          <span style={{ fontFamily: "var(--font-display)" }} className="text-3xl text-[#888880]">
             /10
           </span>
           <p
@@ -133,16 +156,10 @@ export default function CheckInScreen({ onDone }: Props) {
           />
         </div>
         <div className="flex justify-between">
-          <span
-            style={{ fontFamily: "var(--font-mono)" }}
-            className="text-[10px] text-[#555550]"
-          >
+          <span style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] text-[#555550]">
             0
           </span>
-          <span
-            style={{ fontFamily: "var(--font-mono)" }}
-            className="text-[10px] text-[#555550]"
-          >
+          <span style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] text-[#555550]">
             10
           </span>
         </div>
@@ -150,17 +167,15 @@ export default function CheckInScreen({ onDone }: Props) {
 
       {/* Context tags */}
       <div className="space-y-3">
-        <p
-          style={{ fontFamily: "var(--font-mono)" }}
-          className="text-[10px] tracking-[0.2em] uppercase text-[#888880]"
-        >
+        <p style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] tracking-[0.2em] uppercase text-[#888880]">
           Optional context
         </p>
         <div className="flex flex-wrap gap-2">
           {CONTEXT_TAGS.map((tag) => {
-            const on = selected.has(tag);
+            const on = tags.includes(tag);
             return (
               <button
+                type="button"
                 key={tag}
                 onClick={() => toggle(tag)}
                 className={`px-3 py-1.5 rounded-full text-[12px] border transition-all duration-150 ${
@@ -177,7 +192,7 @@ export default function CheckInScreen({ onDone }: Props) {
         </div>
       </div>
 
-      {/* Error notification if backend is unreachable */}
+      {/* Error notification */}
       {errorMsg && (
         <p className="text-xs text-[#e85d3a] text-center font-mono">
           {errorMsg}
@@ -186,13 +201,13 @@ export default function CheckInScreen({ onDone }: Props) {
 
       {/* Submit */}
       <button
-        onClick={handleSave}
+        type="submit"
         disabled={isSubmitting}
         className="w-full py-3.5 bg-[#f2f0ec] text-[#0d0d0d] rounded-2xl hover:opacity-90 active:opacity-80 transition-opacity disabled:opacity-50"
         style={{ fontFamily: "var(--font-body)", fontWeight: 500 }}
       >
-        {isSubmitting ? "Saving..." : "Save check-in"}
+        {isSubmitting ? "Saving..." : data?.date ? "Save demo check-in" : "Save check-in"}
       </button>
-    </div>
+    </form>
   );
 }
