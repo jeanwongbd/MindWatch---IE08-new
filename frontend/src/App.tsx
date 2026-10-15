@@ -7,6 +7,7 @@ import { api, type DemoConfig, type DemoRecord, type Mode } from "./api";
 
 const SCREENS = ["Today", "Check-in", "Measurements used", "Trends"] as const;
 type Screen = (typeof SCREENS)[number];
+
 export default function App() {
   const [active, setActive] = useState<Screen>("Today");
   const [config, setConfig] = useState<DemoConfig | null>(null);
@@ -281,7 +282,7 @@ export default function App() {
         </nav>
       </div>
     </div>
-  </div>;
+  );
 }
 
 function NavIcon({ name, active }: { name: Screen; active: boolean }) {
