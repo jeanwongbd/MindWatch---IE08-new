@@ -1,0 +1,43 @@
+{
+  "profile_id": "demo_p05",
+  "participant_id": 5,
+  "source_dataset": "data\\processed\\daily_model_v2.csv",
+  "source_sha256": "0a3190de359f73b8d820a6db9494fd484a3bde0946cdd84581cafd31559e85ce",
+  "calibration_start": "2025-02-14",
+  "calibration_end": "2025-04-15",
+  "calibration_rows": 60,
+  "valid_training_samples": 53,
+  "invalid_stress_records": 0,
+  "default_date": "2025-04-21",
+  "replay_dates": [
+    "2025-04-16",
+    "2025-04-17",
+    "2025-04-18",
+    "2025-04-19",
+    "2025-04-20",
+    "2025-04-21",
+    "2025-04-22",
+    "2025-04-23",
+    "2025-04-24",
+    "2025-04-25"
+  ],
+  "features": [
+    "avg_rmssd",
+    "overall_score",
+    "daily_steps",
+    "avg_rmssd_dev"
+  ],
+  "stress_scale": [
+    0,
+    100
+  ],
+  "model_type": "personalized_ridge_v2",
+  "ridge_alpha": 100,
+  "limitation": "Provisional retrospective SSAQS daily replay. Source timing remains unresolved; some full-day measurements may occur after check-in. This is not a validated real-time prediction system.",
+  "versions": {
+    "pandas": "3.0.5",
+    "numpy": "2.5.2",
+    "scikit-learn": "1.9.1",
+    "joblib": "1.6.0"
+  }
+}

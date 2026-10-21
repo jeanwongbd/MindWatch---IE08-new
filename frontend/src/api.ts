@@ -1,19 +1,61 @@
-/** Base URL of the FastAPI backend.
- *
- *  The Android emulator reaches the host machine at the 10.0.2.2 alias, but a
- *  desktop browser needs localhost — so resolve per platform instead of
- *  hardcoding either. Override with VITE_API_BASE for a real device or a
- *  deployed backend (a phone on the LAN needs the host's IP, not 10.0.2.2).
- */
-function resolveApiBase(): string {
-  const override = import.meta.env.VITE_API_BASE;
-  if (override) return override.replace(/\/$/, "");
+export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8000").replace(/\/$/, "");
 
-  const platform = (globalThis as any).Capacitor?.getPlatform?.();
-  const host = platform === "android" ? "10.0.2.2" : "localhost";
-  return `http://${host}:8000`;
+export type Mode = "historical_replay" | "synthetic_scenario";
+
+export interface DemoRecord {
+  user_id: string;
+  date: string | null;
+  mode: Mode;
+  source_label: string;
+  scenario_label?: string;
+  reported_stress: {
+    value: number;
+    scale_max: number;
+    normalized_0_100: number;
+    source: string;
+    context_tags?: string[];
+  };
+  original_reported_stress?: number;
+  wearable_estimate: {
+    value: number | null;
+    scale_max: number;
+    status: string;
+    method: string;
+  };
+  comparison: {
+    state: string | null;
+    label: string;
+    description: string;
+  };
+  measurements: Record<string, number | null>;
+  imputed_features: string[];
+  limitation: string;
 }
 
-export const API_BASE = resolveApiBase();
+export interface DemoConfig {
+  profile_id: string;
+  default_date: string;
+  replay_dates: string[];
+  scenarios: { id: string; label: string }[];
+  limitation: string;
+}
 
-export const api = (path: string) => `${API_BASE}${path}`;
+export async function api<T>(path: string, options?: RequestInit): Promise<T> {
+  try {
+    const response = await fetch(API_BASE_URL + path, {
+      ...options,
+      signal: options?.signal ?? AbortSignal.timeout(10000),
+      headers: { "Content-Type": "application/json", ...options?.headers },
+    });
+    if (!response.ok) throw new Error(`Request failed (${response.status}). Please retry.`);
+    return (await response.json()) as T;
+  } catch (error) {
+    if (error instanceof TypeError || (error instanceof DOMException && error.name === "TimeoutError")) {
+      throw new Error("Cannot connect to MindWatch. Start the backend and try again.");
+    }
+    throw error;
+  }
+}
+
+export const number = (v: number | null | undefined) =>
+  v == null ? "Unavailable" : Number.isInteger(v) ? String(v) : v.toFixed(1);
