@@ -1,4 +1,20 @@
-export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8000").replace(/\/$/, "");
+/** Base URL of the FastAPI backend.
+ *
+ *  The Android emulator reaches the host machine at the 10.0.2.2 alias rather
+ *  than localhost, so resolve per platform instead of hardcoding one. Set
+ *  VITE_API_BASE_URL to override, which a real device needs (the host's LAN
+ *  IP, not 10.0.2.2) along with any deployed backend.
+ */
+function resolveApiBaseUrl(): string {
+  const override = import.meta.env.VITE_API_BASE_URL;
+  if (override) return override.replace(/\/$/, "");
+
+  const capacitor = (globalThis as { Capacitor?: { getPlatform?: () => string } }).Capacitor;
+  const host = capacitor?.getPlatform?.() === "android" ? "10.0.2.2" : "localhost";
+  return `http://${host}:8000`;
+}
+
+export const API_BASE_URL = resolveApiBaseUrl();
 
 export type Mode = "historical_replay" | "synthetic_scenario";
 
