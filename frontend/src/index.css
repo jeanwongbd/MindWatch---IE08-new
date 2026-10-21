@@ -1,17 +1,48 @@
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,600&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
 @import 'tailwindcss';
 
+/* Palette lives here as plain custom properties so it can be read at runtime
+   (SVG fills, inline styles) and swapped wholesale for a dark theme. */
+:root {
+  --c-page: #e8e6e1;
+  --c-background: #ffffff;
+  --c-surface: #f6f5f2;
+  --c-surface-raised: #eceae5;
+  --c-input: #f1efea;
+  --c-header: #f6f5f2;
+  --c-selected: #f0edfd;
+  --c-border: #e2e0da;
+  --c-ink: #1a1a18;
+  --c-muted: #6b6b63;
+  --c-dim: #7d7d75;
+  --c-inverse: #1a1a18;
+  --c-on-inverse: #ffffff;
+  --c-accent-stress: #c4441f;
+  --c-accent-load: #9a6b10;
+  --c-accent-calm: #1f7a62;
+  --c-accent-pulse: #6d4ae0;
+  --c-alert-surface: #fdf6e8;
+}
+
 @theme inline {
-  --color-background: #0d0d0d;
-  --color-surface: #161616;
-  --color-surface-raised: #1f1f1f;
-  --color-border: #2a2a2a;
-  --color-text: #f2f0ec;
-  --color-muted: #888880;
-  --color-accent-stress: #e85d3a;
-  --color-accent-load: #e8a23a;
-  --color-accent-calm: #4fb89a;
-  --color-accent-pulse: #a78bfa;
+  --color-page: var(--c-page);
+  --color-background: var(--c-background);
+  --color-surface: var(--c-surface);
+  --color-surface-raised: var(--c-surface-raised);
+  --color-input: var(--c-input);
+  --color-header: var(--c-header);
+  --color-selected: var(--c-selected);
+  --color-border: var(--c-border);
+  --color-ink: var(--c-ink);
+  --color-muted: var(--c-muted);
+  --color-dim: var(--c-dim);
+  --color-inverse: var(--c-inverse);
+  --color-on-inverse: var(--c-on-inverse);
+  --color-accent-stress: var(--c-accent-stress);
+  --color-accent-load: var(--c-accent-load);
+  --color-accent-calm: var(--c-accent-calm);
+  --color-accent-pulse: var(--c-accent-pulse);
+  --color-alert-surface: var(--c-alert-surface);
 
   --font-display: 'Fraunces', Georgia, serif;
   --font-body: 'DM Sans', system-ui, sans-serif;
@@ -23,8 +54,8 @@
 }
 
 body {
-  background: #0d0d0d;
-  color: #f2f0ec;
+  background: var(--c-page);
+  color: var(--c-ink);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
 }
@@ -33,19 +64,19 @@ body {
   display: block;
   width: 100%;
   margin-top: 5px;
-  background: #1f1f1f;
-  color: #f2f0ec;
-  border: 1px solid #444;
+  background: var(--c-input);
+  color: var(--c-ink);
+  border: 1px solid var(--c-border);
   border-radius: 8px;
   padding: 8px;
   font-size: 13px;
 }
 
 .demo-card {
-  border: 1px solid #2a2a2a;
+  border: 1px solid var(--c-border);
   border-radius: 16px;
   padding: 16px;
-  background: #161616;
+  background: var(--c-surface);
 }
 
 .demo-title {
@@ -61,8 +92,8 @@ body {
 }
 
 .demo-button {
-  background: #4fb89a;
-  color: #0d0d0d;
+  background: var(--c-accent-calm);
+  color: var(--c-on-inverse);
   font-weight: 600;
   border-radius: 10px;
   padding: 12px;
@@ -80,6 +111,6 @@ button:disabled {
 button:focus-visible,
 select:focus-visible,
 input:focus-visible {
-  outline: 2px solid #a78bfa;
+  outline: 2px solid var(--c-accent-pulse);
   outline-offset: 3px;
 }

@@ -3,6 +3,7 @@ import TodayScreen from "./screens/TodayScreen";
 import CheckInScreen from "./screens/CheckInScreen";
 import WhyScreen from "./screens/WhyScreen";
 import TrendsScreen from "./screens/TrendsScreen";
+import { C } from "./theme";
 import { api, type DemoConfig, type DemoRecord, type Mode } from "./api";
 
 const SCREENS = ["Today", "Check-in", "Measurements used", "Trends"] as const;
@@ -117,24 +118,24 @@ export default function App() {
   return (
     <div
       style={{ fontFamily: "var(--font-body)" }}
-      className="min-h-screen bg-[#0d0d0d] flex items-center justify-center p-3"
+      className="min-h-screen bg-page flex items-center justify-center p-3"
     >
       {/* Phone shell */}
-      <div className="relative w-full max-w-[420px] h-[min(900px,96dvh)] min-h-[580px] bg-[#0d0d0d] rounded-[36px] overflow-hidden border border-[#2a2a2a] shadow-[0_0_80px_rgba(0,0,0,0.8)] flex flex-col">
+      <div className="relative w-full max-w-[420px] h-[min(900px,96dvh)] min-h-[580px] bg-background rounded-[36px] overflow-hidden border border-border shadow-[0_0_80px_rgba(0,0,0,0.12)] flex flex-col">
         {/* Status bar */}
         <div className="flex items-center justify-between px-6 pt-3 pb-1 flex-shrink-0">
           <span
             style={{ fontFamily: "var(--font-mono)" }}
-            className="text-[11px] text-[#888880]"
+            className="text-[11px] text-muted"
           >
             9:41
           </span>
-          <div className="w-20 h-5 bg-[#161616] rounded-full" />
+          <div className="w-20 h-5 bg-surface rounded-full" />
           <div className="flex gap-1.5 items-center">
-            <div className="w-3.5 h-2 rounded-sm bg-[#4fb89a]" />
+            <div className="w-3.5 h-2 rounded-sm bg-accent-calm" />
             <span
               style={{ fontFamily: "var(--font-mono)" }}
-              className="text-[10px] text-[#888880]"
+              className="text-[10px] text-muted"
             >
               87%
             </span>
@@ -142,15 +143,15 @@ export default function App() {
         </div>
 
         {/* Control Header */}
-        <header className="px-5 pt-2 pb-3 border-b border-[#2a2a2a] bg-[#121212]/70 backdrop-blur space-y-2.5 flex-shrink-0">
+        <header className="px-5 pt-2 pb-3 border-b border-border bg-header/70 backdrop-blur space-y-2.5 flex-shrink-0">
           <div className="flex items-center justify-between">
-            <span className="font-semibold text-sm tracking-wide text-[#f2f0ec]">
+            <span className="font-semibold text-sm tracking-wide text-ink">
               MindWatch
             </span>
             <button
               disabled={busy}
               onClick={reset}
-              className="text-xs text-[#4fb89a] hover:underline disabled:opacity-50"
+              className="text-xs text-accent-calm hover:underline disabled:opacity-50"
             >
               {busy ? "Resetting…" : "Reset"}
             </button>
@@ -158,7 +159,7 @@ export default function App() {
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <span className="block text-[9px] uppercase tracking-wider text-[#888880] mb-0.5">
+              <span className="block text-[9px] uppercase tracking-wider text-muted mb-0.5">
                 Mode
               </span>
               <select
@@ -168,7 +169,7 @@ export default function App() {
                   setNotice("");
                   setMode(e.target.value as Mode);
                 }}
-                className="w-full bg-[#1c1c1c] text-[#f2f0ec] border border-[#2a2a2a] rounded-lg px-2 py-1.5 text-xs outline-none focus:border-[#a78bfa]"
+                className="w-full bg-input text-ink border border-border rounded-lg px-2 py-1.5 text-xs outline-none focus:border-accent-pulse"
               >
                 <option value="historical_replay">Historical replay</option>
                 <option value="synthetic_scenario">Synthetic scenario</option>
@@ -178,12 +179,12 @@ export default function App() {
             <div>
               {mode === "historical_replay" ? (
                 <>
-                  <span className="block text-[9px] uppercase tracking-wider text-[#888880] mb-0.5">
+                  <span className="block text-[9px] uppercase tracking-wider text-muted mb-0.5">
                     Date
                   </span>
                   <select
                     aria-label="Replay date"
-                    className="w-full bg-[#1c1c1c] text-[#f2f0ec] border border-[#2a2a2a] rounded-lg px-2 py-1.5 text-xs outline-none focus:border-[#a78bfa]"
+                    className="w-full bg-input text-ink border border-border rounded-lg px-2 py-1.5 text-xs outline-none focus:border-accent-pulse"
                     value={date}
                     onChange={(e) => {
                       setNotice("");
@@ -199,12 +200,12 @@ export default function App() {
                 </>
               ) : (
                 <>
-                  <span className="block text-[9px] uppercase tracking-wider text-[#888880] mb-0.5">
+                  <span className="block text-[9px] uppercase tracking-wider text-muted mb-0.5">
                     Scenario
                   </span>
                   <select
                     aria-label="Scenario"
-                    className="w-full bg-[#1c1c1c] text-[#f2f0ec] border border-[#2a2a2a] rounded-lg px-2 py-1.5 text-xs outline-none focus:border-[#a78bfa]"
+                    className="w-full bg-input text-ink border border-border rounded-lg px-2 py-1.5 text-xs outline-none focus:border-accent-pulse"
                     value={scenario}
                     onChange={(e) => setScenario(e.target.value)}
                   >
@@ -222,7 +223,7 @@ export default function App() {
           {notice && (
             <p
               role="status"
-              className="text-[11px] text-[#4fb89a] font-mono bg-[#4fb89a]/10 px-2 py-1 rounded"
+              className="text-[11px] text-accent-calm font-mono bg-accent-calm/10 px-2 py-1 rounded"
             >
               {notice}
             </p>
@@ -232,17 +233,17 @@ export default function App() {
         {/* Screen content area */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden">
           {error ? (
-            <div role="alert" className="p-6 text-sm text-[#e85d3a] space-y-3 font-mono">
+            <div role="alert" className="p-6 text-sm text-accent-stress space-y-3 font-mono">
               <p>{error}</p>
               <button
-                className="px-4 py-2 bg-[#4fb89a] text-[#0d0d0d] font-semibold text-xs rounded-lg"
+                className="px-4 py-2 bg-accent-calm text-background font-semibold text-xs rounded-lg"
                 onClick={() => setRevision((r) => r + 1)}
               >
                 Retry connection
               </button>
             </div>
           ) : loading || !data ? (
-            <div className="flex items-center justify-center h-48 text-[#888880] text-xs font-mono">
+            <div className="flex items-center justify-center h-48 text-muted text-xs font-mono">
               Loading biometrics…
             </div>
           ) : (
@@ -253,7 +254,7 @@ export default function App() {
         {/* Bottom nav bar */}
         <nav
           aria-label="Screens"
-          className="flex-shrink-0 border-t border-[#2a2a2a] bg-[#0d0d0d] pb-5"
+          className="flex-shrink-0 border-t border-border bg-background pb-5"
         >
           <div className="flex">
             {SCREENS.map((s) => (
@@ -263,15 +264,15 @@ export default function App() {
                 aria-current={active === s ? "page" : undefined}
                 className={`flex-1 py-3 text-center transition-colors ${
                   active === s
-                    ? "text-[#f2f0ec]"
-                    : "text-[#888880] hover:text-[#f2f0ec]"
+                    ? "text-ink"
+                    : "text-muted hover:text-ink"
                 }`}
               >
                 <NavIcon name={s} active={active === s} />
                 <span
                   style={{ fontFamily: "var(--font-mono)" }}
                   className={`block text-[9px] mt-1 tracking-wider uppercase truncate px-1 ${
-                    active === s ? "text-[#f2f0ec]" : "text-[#555550]"
+                    active === s ? "text-ink" : "text-dim"
                   }`}
                 >
                   {s === "Measurements used" ? "Why?" : s}
@@ -286,26 +287,28 @@ export default function App() {
 }
 
 function NavIcon({ name, active }: { name: Screen; active: boolean }) {
-  const color = active ? "#f2f0ec" : "#555550";
+  // SVG presentation attributes don't resolve var(), so paint via CSS properties.
+  const color = active ? C.ink : C.dim;
+  const stroke = { stroke: color, fill: "none" as const };
   const icons: Record<Screen, React.ReactNode> = {
     Today: (
       <svg width="18" height="18" viewBox="0 0 20 20" fill="none" className="mx-auto">
-        <circle cx="10" cy="10" r="7" stroke={color} strokeWidth="1.5" />
-        <circle cx="10" cy="10" r="2.5" fill={color} />
+        <circle cx="10" cy="10" r="7" style={stroke} strokeWidth="1.5" />
+        <circle cx="10" cy="10" r="2.5" style={{ fill: color }} />
       </svg>
     ),
     "Check-in": (
       <svg width="18" height="18" viewBox="0 0 20 20" fill="none" className="mx-auto">
-        <rect x="3" y="3" width="14" height="14" rx="3" stroke={color} strokeWidth="1.5" />
-        <path d="M7 10h6M10 7v6" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+        <rect x="3" y="3" width="14" height="14" rx="3" style={stroke} strokeWidth="1.5" />
+        <path d="M7 10h6M10 7v6" style={stroke} strokeWidth="1.5" strokeLinecap="round" />
       </svg>
     ),
     "Measurements used": (
       <svg width="18" height="18" viewBox="0 0 20 20" fill="none" className="mx-auto">
-        <circle cx="10" cy="10" r="7" stroke={color} strokeWidth="1.5" />
+        <circle cx="10" cy="10" r="7" style={stroke} strokeWidth="1.5" />
         <path
           d="M10 13.5v-.5M10 6.5c0 0 2 .5 2 2.5s-2 2-2 3"
-          stroke={color}
+          style={stroke}
           strokeWidth="1.5"
           strokeLinecap="round"
         />
@@ -315,7 +318,7 @@ function NavIcon({ name, active }: { name: Screen; active: boolean }) {
       <svg width="18" height="18" viewBox="0 0 20 20" fill="none" className="mx-auto">
         <path
           d="M3 14l4-4 3 2 4-5 3 2"
-          stroke={color}
+          style={stroke}
           strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"

@@ -1,4 +1,5 @@
 import { number, type DemoRecord } from "../api";
+import { C } from "../theme";
 
 interface Props {
   data: DemoRecord;
@@ -12,19 +13,19 @@ export default function TrendsScreen({ data, records = [] }: Props) {
         <div>
           <p
             style={{ fontFamily: "var(--font-mono)" }}
-            className="text-[10px] tracking-[0.2em] uppercase text-[#888880]"
+            className="text-[10px] tracking-[0.2em] uppercase text-muted"
           >
             Biometric History
           </p>
           <h1
             style={{ fontFamily: "var(--font-display)" }}
-            className="demo-title text-2xl font-light text-[#f2f0ec] mt-0.5"
+            className="demo-title text-2xl font-light text-ink mt-0.5"
           >
             Trends
           </h1>
         </div>
-        <div className="demo-card bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4">
-          <p className="text-sm text-[#888880] leading-relaxed">
+        <div className="demo-card bg-surface border border-border rounded-2xl p-4">
+          <p className="text-sm text-muted leading-relaxed">
             Synthetic scenario selected. Fixtures are excluded from historical trends.
           </p>
         </div>
@@ -59,12 +60,12 @@ export default function TrendsScreen({ data, records = [] }: Props) {
 
   const series = [
     {
-      color: "#e8a23a",
+      color: C.load,
       label: "Wearable estimate",
       values: records.map((r) => r.wearable_estimate?.value ?? null),
     },
     {
-      color: "#4fb89a",
+      color: C.calm,
       label: "Reported stress",
       values: records.map((r) => r.reported_stress?.normalized_0_100 ?? 0),
     },
@@ -76,23 +77,23 @@ export default function TrendsScreen({ data, records = [] }: Props) {
       <div>
         <p
           style={{ fontFamily: "var(--font-mono)" }}
-          className="text-[10px] tracking-[0.2em] uppercase text-[#888880]"
+          className="text-[10px] tracking-[0.2em] uppercase text-muted"
         >
           {records[0]?.date} to {records.at(-1)?.date}
         </p>
         <h1
           style={{ fontFamily: "var(--font-display)" }}
-          className="demo-title text-2xl font-light text-[#f2f0ec] mt-0.5"
+          className="demo-title text-2xl font-light text-ink mt-0.5"
         >
           Historical trends
         </h1>
-        <p className="text-[11px] text-[#888880] font-mono mt-1">
+        <p className="text-[11px] text-muted font-mono mt-1">
           Historical replay · Both series use 0–100. Missing estimates are gaps.
         </p>
       </div>
 
       {/* SVG Chart Container */}
-      <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-3.5 space-y-3">
+      <div className="bg-surface border border-border rounded-2xl p-3.5 space-y-3">
         <svg
           role="img"
           aria-label="Historical wearable estimates and reported stress, on a zero to one hundred scale"
@@ -107,14 +108,14 @@ export default function TrendsScreen({ data, records = [] }: Props) {
                 x2={width - 10}
                 y1={y(v)}
                 y2={y(v)}
-                stroke="#2a2a2a"
+                style={{ stroke: C.border }}
                 strokeDasharray={v === 50 ? "4 4" : undefined}
                 strokeWidth={v === 50 ? "1" : "0.5"}
               />
               <text
                 x="4"
                 y={y(v) + 3}
-                fill="#888880"
+                style={{ fill: C.muted }}
                 fontSize="9"
                 fontFamily="var(--font-mono)"
               >
@@ -130,8 +131,7 @@ export default function TrendsScreen({ data, records = [] }: Props) {
                 <polyline
                   key={i}
                   points={points}
-                  fill="none"
-                  stroke={s.color}
+                  style={{ fill: "none", stroke: s.color }}
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -144,8 +144,7 @@ export default function TrendsScreen({ data, records = [] }: Props) {
                     cx={x(i)}
                     cy={y(v)}
                     r="3.5"
-                    fill={s.color}
-                    stroke="#161616"
+                    style={{ fill: s.color, stroke: C.surface }}
                     strokeWidth="1"
                   >
                     <title>
@@ -159,13 +158,13 @@ export default function TrendsScreen({ data, records = [] }: Props) {
         </svg>
 
         {/* Legend */}
-        <div className="flex gap-4 text-xs font-mono pt-1 border-t border-[#222]">
-          <span className="text-[#e8a23a] flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-[#e8a23a]" />
+        <div className="flex gap-4 text-xs font-mono pt-1 border-t border-border">
+          <span className="text-accent-load flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-accent-load" />
             Wearable estimate
           </span>
-          <span className="text-[#4fb89a] flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-[#4fb89a]" />
+          <span className="text-accent-calm flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-accent-calm" />
             Reported stress
           </span>
         </div>
@@ -175,7 +174,7 @@ export default function TrendsScreen({ data, records = [] }: Props) {
       <div className="space-y-3">
         <p
           style={{ fontFamily: "var(--font-mono)" }}
-          className="text-[10px] tracking-[0.15em] uppercase text-[#888880]"
+          className="text-[10px] tracking-[0.15em] uppercase text-muted"
         >
           Daily log history
         </p>
@@ -184,35 +183,35 @@ export default function TrendsScreen({ data, records = [] }: Props) {
           return (
             <div
               key={r.date}
-              className={`demo-card bg-[#161616] border rounded-2xl p-4 transition-colors ${
-                isSelected ? "border-[#a78bfa] bg-[#1a1824]" : "border-[#2a2a2a]"
+              className={`demo-card bg-surface border rounded-2xl p-4 transition-colors ${
+                isSelected ? "border-accent-pulse bg-selected" : "border-border"
               }`}
             >
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-[#f2f0ec]">
+                <h2 className="text-sm font-semibold text-ink">
                   {r.date}
                   {isSelected && (
-                    <span className="ml-2 text-[10px] font-mono text-[#a78bfa] uppercase">
+                    <span className="ml-2 text-[10px] font-mono text-accent-pulse uppercase">
                       · Selected
                     </span>
                   )}
                 </h2>
-                <span className="text-[11px] font-mono text-[#888880]">
+                <span className="text-[11px] font-mono text-muted">
                   {r.comparison?.label}
                 </span>
               </div>
 
               <p className="text-sm mt-2 font-mono">
-                <span className="text-[#e8a23a]">
+                <span className="text-accent-load">
                   Estimate {number(r.wearable_estimate?.value)}
                 </span>
                 {" · "}
-                <span className="text-[#4fb89a]">
+                <span className="text-accent-calm">
                   Reported {number(r.reported_stress?.normalized_0_100)}
                 </span>
               </p>
 
-              <p className="text-xs text-[#888880] mt-1.5">
+              <p className="text-xs text-muted mt-1.5">
                 {r.reported_stress?.source === "demo_checkin"
                   ? `Demo check-in override · Original: ${number(
                       r.original_reported_stress

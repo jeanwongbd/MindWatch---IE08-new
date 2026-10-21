@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { type DemoRecord, number } from "../api";
+import { C } from "../theme";
 
 interface Props {
   data?: DemoRecord;
@@ -10,14 +11,14 @@ interface Props {
 const API_BASE_URL = "http://localhost:8000";
 
 function stressColor(v: number) {
-  if (v <= 3) return "#4fb89a";
-  if (v <= 6) return "#e8a23a";
-  return "#e85d3a";
+  if (v <= 3) return C.calm;
+  if (v <= 6) return C.load;
+  return C.stress;
 }
 
 function loadColor(v: number) {
-  if (v < 50) return "#4fb89a";
-  return "#e85d3a";
+  if (v < 50) return C.calm;
+  return C.stress;
 }
 
 function stressLabel(v: number) {
@@ -61,7 +62,7 @@ export default function TodayScreen({ data: initialData, onCheckIn, onWhy }: Pro
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-12 text-[#888880] font-mono text-xs">
+      <div className="flex items-center justify-center p-12 text-muted font-mono text-xs">
         Loading today's biometric profile...
       </div>
     );
@@ -69,7 +70,7 @@ export default function TodayScreen({ data: initialData, onCheckIn, onWhy }: Pro
 
   if (error || !data) {
     return (
-      <div className="p-6 text-sm text-[#e85d3a] font-mono">
+      <div className="p-6 text-sm text-accent-stress font-mono">
         Could not connect to FastAPI server at {API_BASE_URL}. Is Uvicorn running?
       </div>
     );
@@ -106,18 +107,18 @@ export default function TodayScreen({ data: initialData, onCheckIn, onWhy }: Pro
         <div>
           <p
             style={{ fontFamily: "var(--font-mono)" }}
-            className="text-[10px] tracking-[0.2em] uppercase text-[#888880]"
+            className="text-[10px] tracking-[0.2em] uppercase text-muted"
           >
             {data.date || data.source_label || "2026-08-25"}
           </p>
           <h1
             style={{ fontFamily: "var(--font-display)" }}
-            className="text-2xl font-light text-[#f2f0ec] mt-0.5"
+            className="text-2xl font-light text-ink mt-0.5"
           >
             Good morning
           </h1>
         </div>
-        <div className="w-8 h-8 rounded-full bg-[#1f1f1f] border border-[#2a2a2a] flex items-center justify-center text-[10px] text-[#888880] font-mono">
+        <div className="w-8 h-8 rounded-full bg-surface-raised border border-border flex items-center justify-center text-[10px] text-muted font-mono">
           {data.user_id ? data.user_id.slice(-3).toUpperCase() : "DEM"}
         </div>
       </div>
@@ -125,10 +126,10 @@ export default function TodayScreen({ data: initialData, onCheckIn, onWhy }: Pro
       {/* Two input cards */}
       <div className="grid grid-cols-2 gap-3">
         {/* HOW I FEEL */}
-        <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4 space-y-3">
+        <div className="bg-surface border border-border rounded-2xl p-4 space-y-3">
           <p
             style={{ fontFamily: "var(--font-mono)" }}
-            className="text-[9px] tracking-[0.2em] uppercase text-[#888880]"
+            className="text-[9px] tracking-[0.2em] uppercase text-muted"
           >
             How I feel
           </p>
@@ -145,7 +146,7 @@ export default function TodayScreen({ data: initialData, onCheckIn, onWhy }: Pro
             </span>
             <span
               style={{ fontFamily: "var(--font-display)" }}
-              className="text-lg text-[#888880] mb-1.5"
+              className="text-lg text-muted mb-1.5"
             >
               /{stressScale}
             </span>
@@ -160,7 +161,7 @@ export default function TodayScreen({ data: initialData, onCheckIn, onWhy }: Pro
             >
               {stressLabel(normalizedStress)}
             </p>
-            <p className="text-[9px] text-[#555550] mt-0.5 truncate">
+            <p className="text-[9px] text-dim mt-0.5 truncate">
               {data.reported_stress?.source === "demo_checkin"
                 ? "Demo check-in override"
                 : data.mode === "synthetic_scenario"
@@ -171,10 +172,10 @@ export default function TodayScreen({ data: initialData, onCheckIn, onWhy }: Pro
         </div>
 
         {/* MY BODY (LOAD) */}
-        <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4 space-y-3">
+        <div className="bg-surface border border-border rounded-2xl p-4 space-y-3">
           <p
             style={{ fontFamily: "var(--font-mono)" }}
-            className="text-[9px] tracking-[0.2em] uppercase text-[#888880]"
+            className="text-[9px] tracking-[0.2em] uppercase text-muted"
           >
             My body (Load)
           </p>
@@ -195,7 +196,7 @@ export default function TodayScreen({ data: initialData, onCheckIn, onWhy }: Pro
             </span>
             <span
               style={{ fontFamily: "var(--font-display)" }}
-              className="text-lg text-[#888880] mb-1.5"
+              className="text-lg text-muted mb-1.5"
             >
               /100
             </span>
@@ -210,7 +211,7 @@ export default function TodayScreen({ data: initialData, onCheckIn, onWhy }: Pro
             >
               {loadVal >= 50 ? "Higher than usual" : "Around baseline"}
             </p>
-            <p className="text-[9px] text-[#555550] mt-0.5 truncate">
+            <p className="text-[9px] text-dim mt-0.5 truncate">
               {estimate.method === "synthetic_fixture"
                 ? "Synthetic fixture"
                 : "Ridge V2 Personal model"}
@@ -223,32 +224,32 @@ export default function TodayScreen({ data: initialData, onCheckIn, onWhy }: Pro
       <div
         className={`rounded-2xl p-4 border transition-colors ${
           isMismatch
-            ? "bg-[#1a1208] border-[#e8a23a]/30"
-            : "bg-[#161616] border-[#2a2a2a]"
+            ? "bg-alert-surface border-accent-load/30"
+            : "bg-surface border-border"
         }`}
       >
         <div className="flex items-start gap-3">
           <div
             className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${
-              isMismatch ? "bg-[#e8a23a]" : "bg-[#4fb89a]"
+              isMismatch ? "bg-accent-load" : "bg-accent-calm"
             }`}
           />
           <div>
             <p
               style={{ fontFamily: "var(--font-mono)" }}
               className={`text-[10px] tracking-[0.15em] uppercase mb-1 ${
-                isMismatch ? "text-[#e8a23a]" : "text-[#4fb89a]"
+                isMismatch ? "text-accent-load" : "text-accent-calm"
               }`}
             >
               {comparison.label || "Stress Comparison"}
             </p>
-            <p className="text-[13px] text-[#f2f0ec] leading-snug">
+            <p className="text-[13px] text-ink leading-snug">
               {comparison.description}
             </p>
             <button
               onClick={onWhy}
               style={{ fontFamily: "var(--font-mono)" }}
-              className="text-[11px] text-[#e8a23a] mt-2 underline underline-offset-2 hover:text-[#f2c47a] transition-colors inline-block"
+              className="text-[11px] text-accent-load mt-2 underline underline-offset-2 hover:text-accent-load transition-colors inline-block"
             >
               See biometric breakdown →
             </button>
@@ -257,7 +258,7 @@ export default function TodayScreen({ data: initialData, onCheckIn, onWhy }: Pro
       </div>
 
       {/* Dynamic Biometric Contributors from API */}
-      <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl divide-y divide-[#2a2a2a]">
+      <div className="bg-surface border border-border rounded-2xl divide-y divide-border">
         {contributors.map((c: any, idx: number) => (
           <div
             key={idx}
@@ -265,13 +266,13 @@ export default function TodayScreen({ data: initialData, onCheckIn, onWhy }: Pro
           >
             <span
               style={{ fontFamily: "var(--font-mono)" }}
-              className="text-[11px] text-[#888880] uppercase tracking-wide"
+              className="text-[11px] text-muted uppercase tracking-wide"
             >
               {c.feature}
             </span>
             <span
               style={{ fontFamily: "var(--font-mono)" }}
-              className="text-[11px] text-[#e85d3a]"
+              className="text-[11px] text-accent-stress"
             >
               {c.description}
             </span>
@@ -281,13 +282,13 @@ export default function TodayScreen({ data: initialData, onCheckIn, onWhy }: Pro
 
       {/* CTA Button */}
       {data.mode === "synthetic_scenario" ? (
-        <p className="text-center text-[11px] font-mono text-[#888880]">
+        <p className="text-center text-[11px] font-mono text-muted">
           Synthetic scenarios are read-only fixtures.
         </p>
       ) : (
         <button
           onClick={onCheckIn}
-          className="w-full py-3.5 bg-[#f2f0ec] text-[#0d0d0d] rounded-2xl hover:opacity-90 active:opacity-80 transition-opacity"
+          className="w-full py-3.5 bg-ink text-background rounded-2xl hover:opacity-90 active:opacity-80 transition-opacity"
           style={{ fontFamily: "var(--font-body)", fontWeight: 500 }}
         >
           {data.reported_stress?.source === "demo_checkin" ? "Edit today's check-in" : "Log today's stress"}
@@ -296,7 +297,7 @@ export default function TodayScreen({ data: initialData, onCheckIn, onWhy }: Pro
 
       {/* Disclaimer / Model limitations */}
       {data.limitation && (
-        <p className="text-[10px] text-[#555550] leading-relaxed text-center px-2">
+        <p className="text-[10px] text-dim leading-relaxed text-center px-2">
           {data.limitation}
         </p>
       )}

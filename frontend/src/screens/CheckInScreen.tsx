@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api, type DemoRecord } from "../api";
+import { C } from "../theme";
 
 const CONTEXT_TAGS = [
   "Exam",
@@ -23,24 +24,24 @@ export default function CheckInScreen({ data, onDone }: Props) {
     return (
       <div className="px-6 py-6 space-y-4">
         <div>
-          <p style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] tracking-[0.2em] uppercase text-[#888880]">
+          <p style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] tracking-[0.2em] uppercase text-muted">
             Demo Fixture
           </p>
-          <h1 style={{ fontFamily: "var(--font-display)" }} className="text-2xl font-light text-[#f2f0ec] mt-1">
+          <h1 style={{ fontFamily: "var(--font-display)" }} className="text-2xl font-light text-ink mt-1">
             Reported Stress
           </h1>
         </div>
-        <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 space-y-2">
-          <p className="text-sm text-[#888880]">
+        <div className="bg-surface border border-border rounded-2xl p-5 space-y-2">
+          <p className="text-sm text-muted">
             Synthetic scenarios are read-only fixtures.
           </p>
-          <p style={{ fontFamily: "var(--font-display)" }} className="text-3xl text-[#4fb89a]">
-            {data.reported_stress?.value ?? 0} <span className="text-sm text-[#888880]">/ 10</span>
+          <p style={{ fontFamily: "var(--font-display)" }} className="text-3xl text-accent-calm">
+            {data.reported_stress?.value ?? 0} <span className="text-sm text-muted">/ 10</span>
           </p>
         </div>
         <button
           onClick={onDone}
-          className="w-full py-3.5 bg-[#1f1f1f] text-[#f2f0ec] border border-[#2a2a2a] rounded-xl hover:border-[#555550] transition-colors"
+          className="w-full py-3.5 bg-surface-raised text-ink border border-border rounded-xl hover:border-dim transition-colors"
           style={{ fontFamily: "var(--font-mono)", fontSize: "11px" }}
         >
           ← Return to Dashboard
@@ -102,7 +103,7 @@ export default function CheckInScreen({ data, onDone }: Props) {
   }
 
   const stressColor =
-    stress <= 3 ? "#4fb89a" : stress <= 6 ? "#e8a23a" : "#e85d3a";
+    stress <= 3 ? C.calm : stress <= 6 ? C.load : C.stress;
   const stressLabel =
     stress <= 3 ? "Low" : stress <= 6 ? "Moderate" : stress <= 8 ? "High" : "Very high";
 
@@ -110,10 +111,10 @@ export default function CheckInScreen({ data, onDone }: Props) {
     <form onSubmit={handleSave} className="px-6 py-4 space-y-6">
       {/* Header */}
       <div>
-        <p style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] tracking-[0.2em] uppercase text-[#888880]">
+        <p style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] tracking-[0.2em] uppercase text-muted">
           {data?.date ? `Check-in for ${data.date}` : "Daily check-in"}
         </p>
-        <h1 style={{ fontFamily: "var(--font-display)" }} className="text-2xl font-light text-[#f2f0ec] mt-0.5">
+        <h1 style={{ fontFamily: "var(--font-display)" }} className="text-2xl font-light text-ink mt-0.5">
           How stressed do you feel?
         </h1>
       </div>
@@ -127,7 +128,7 @@ export default function CheckInScreen({ data, onDone }: Props) {
           >
             {stress}
           </span>
-          <span style={{ fontFamily: "var(--font-display)" }} className="text-3xl text-[#888880]">
+          <span style={{ fontFamily: "var(--font-display)" }} className="text-3xl text-muted">
             /10
           </span>
           <p
@@ -150,16 +151,16 @@ export default function CheckInScreen({ data, onDone }: Props) {
             onChange={(e) => setStress(Number(e.target.value))}
             className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
             style={{
-              background: `linear-gradient(to right, ${stressColor} ${stress * 10}%, #2a2a2a ${stress * 10}%)`,
+              background: `linear-gradient(to right, ${stressColor} ${stress * 10}%, ${C.border} ${stress * 10}%)`,
               accentColor: stressColor,
             }}
           />
         </div>
         <div className="flex justify-between">
-          <span style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] text-[#555550]">
+          <span style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] text-dim">
             0
           </span>
-          <span style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] text-[#555550]">
+          <span style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] text-dim">
             10
           </span>
         </div>
@@ -167,7 +168,7 @@ export default function CheckInScreen({ data, onDone }: Props) {
 
       {/* Context tags */}
       <div className="space-y-3">
-        <p style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] tracking-[0.2em] uppercase text-[#888880]">
+        <p style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] tracking-[0.2em] uppercase text-muted">
           Optional context
         </p>
         <div className="flex flex-wrap gap-2">
@@ -180,8 +181,8 @@ export default function CheckInScreen({ data, onDone }: Props) {
                 onClick={() => toggle(tag)}
                 className={`px-3 py-1.5 rounded-full text-[12px] border transition-all duration-150 ${
                   on
-                    ? "bg-[#f2f0ec] border-[#f2f0ec] text-[#0d0d0d]"
-                    : "bg-transparent border-[#2a2a2a] text-[#888880] hover:border-[#555550] hover:text-[#f2f0ec]"
+                    ? "bg-ink border-ink text-background"
+                    : "bg-transparent border-border text-muted hover:border-dim hover:text-ink"
                 }`}
                 style={{ fontFamily: "var(--font-body)" }}
               >
@@ -194,7 +195,7 @@ export default function CheckInScreen({ data, onDone }: Props) {
 
       {/* Error notification */}
       {errorMsg && (
-        <p className="text-xs text-[#e85d3a] text-center font-mono">
+        <p className="text-xs text-accent-stress text-center font-mono">
           {errorMsg}
         </p>
       )}
@@ -203,7 +204,7 @@ export default function CheckInScreen({ data, onDone }: Props) {
       <button
         type="submit"
         disabled={isSubmitting}
-        className="w-full py-3.5 bg-[#f2f0ec] text-[#0d0d0d] rounded-2xl hover:opacity-90 active:opacity-80 transition-opacity disabled:opacity-50"
+        className="w-full py-3.5 bg-ink text-background rounded-2xl hover:opacity-90 active:opacity-80 transition-opacity disabled:opacity-50"
         style={{ fontFamily: "var(--font-body)", fontWeight: 500 }}
       >
         {isSubmitting ? "Saving..." : data?.date ? "Save demo check-in" : "Save check-in"}
