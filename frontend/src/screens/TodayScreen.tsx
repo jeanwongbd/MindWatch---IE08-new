@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { C } from "../theme";
+import { api, API_BASE } from "../api";
 
 interface Props {
   onCheckIn: () => void;
@@ -32,14 +34,14 @@ interface TodayProfileResponse {
 }
 
 function stressColor(v: number) {
-  if (v <= 3) return "#4fb89a";
-  if (v <= 6) return "#e8a23a";
-  return "#e85d3a";
+  if (v <= 3) return C.calm;
+  if (v <= 6) return C.load;
+  return C.stress;
 }
 
 function loadColor(v: number) {
-  if (v < 50) return "#4fb89a";
-  return "#e85d3a";
+  if (v < 50) return C.calm;
+  return C.stress;
 }
 
 function stressLabel(v: number) {
@@ -55,7 +57,7 @@ export default function TodayScreen({ onCheckIn, onWhy }: Props) {
 
   // Fetch backend today profile on component mount
   useEffect(() => {
-    fetch("http://localhost:8000/profiles/demo01/today")
+    fetch(api("/profiles/demo01/today"))
       .then((res) => {
         if (!res.ok) throw new Error("Failed to reach MindWatch API");
         return res.json();
@@ -73,7 +75,7 @@ export default function TodayScreen({ onCheckIn, onWhy }: Props) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-12 text-[#888880]">
+      <div className="flex items-center justify-center p-12 text-muted">
         Loading today's biometric profile...
       </div>
     );
@@ -81,8 +83,8 @@ export default function TodayScreen({ onCheckIn, onWhy }: Props) {
 
   if (error || !data) {
     return (
-      <div className="p-6 text-sm text-[#e85d3a]">
-        Could not connect to FastAPI server at localhost:8000. Is Uvicorn running?
+      <div className="p-6 text-sm text-accent-stress">
+        Could not connect to FastAPI server at {API_BASE}. Is Uvicorn running?
       </div>
     );
   }
@@ -96,21 +98,21 @@ export default function TodayScreen({ onCheckIn, onWhy }: Props) {
       {/* Header */}
       <div className="flex items-baseline justify-between">
         <div>
-          <p style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] tracking-[0.2em] uppercase text-[#888880]">
+          <p style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] tracking-[0.2em] uppercase text-muted">
             {data.date}
           </p>
-          <h1 style={{ fontFamily: "var(--font-display)" }} className="text-2xl font-light text-[#f2f0ec] mt-0.5">
+          <h1 style={{ fontFamily: "var(--font-display)" }} className="text-2xl font-light text-ink mt-0.5">
             Good morning
           </h1>
         </div>
-        <div className="w-8 h-8 rounded-full bg-[#1f1f1f] border border-[#2a2a2a]" />
+        <div className="w-8 h-8 rounded-full bg-surface-raised border border-border" />
       </div>
 
       {/* Two input cards */}
       <div className="grid grid-cols-2 gap-3">
         {/* HOW I FEEL */}
-        <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4 space-y-3">
-          <p style={{ fontFamily: "var(--font-mono)" }} className="text-[9px] tracking-[0.2em] uppercase text-[#888880]">
+        <div className="bg-surface border border-border rounded-2xl p-4 space-y-3">
+          <p style={{ fontFamily: "var(--font-mono)" }} className="text-[9px] tracking-[0.2em] uppercase text-muted">
             How I feel
           </p>
           <div className="flex items-end gap-1">
@@ -120,7 +122,7 @@ export default function TodayScreen({ onCheckIn, onWhy }: Props) {
             >
               {stress}
             </span>
-            <span style={{ fontFamily: "var(--font-display)" }} className="text-lg text-[#888880] mb-1.5">
+            <span style={{ fontFamily: "var(--font-display)" }} className="text-lg text-muted mb-1.5">
               /10
             </span>
           </div>
@@ -130,8 +132,8 @@ export default function TodayScreen({ onCheckIn, onWhy }: Props) {
         </div>
 
         {/* MY BODY */}
-        <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4 space-y-3">
-          <p style={{ fontFamily: "var(--font-mono)" }} className="text-[9px] tracking-[0.2em] uppercase text-[#888880]">
+        <div className="bg-surface border border-border rounded-2xl p-4 space-y-3">
+          <p style={{ fontFamily: "var(--font-mono)" }} className="text-[9px] tracking-[0.2em] uppercase text-muted">
             My body (Load)
           </p>
           <div className="flex items-end gap-1">
@@ -141,7 +143,7 @@ export default function TodayScreen({ onCheckIn, onWhy }: Props) {
             >
               {load}
             </span>
-            <span style={{ fontFamily: "var(--font-display)" }} className="text-lg text-[#888880] mb-1.5">
+            <span style={{ fontFamily: "var(--font-display)" }} className="text-lg text-muted mb-1.5">
               /100
             </span>
           </div>
@@ -153,20 +155,20 @@ export default function TodayScreen({ onCheckIn, onWhy }: Props) {
 
       {/* Mismatch banner — dynamic from FastAPI backend */}
       {isMismatch && (
-        <div className="bg-[#1a1208] border border-[#e8a23a]/30 rounded-2xl p-4">
+        <div className="bg-alert-surface border border-accent-load/30 rounded-2xl p-4">
           <div className="flex items-start gap-3">
-            <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-[#e8a23a] flex-shrink-0" />
+            <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-accent-load flex-shrink-0" />
             <div>
-              <p style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] tracking-[0.15em] uppercase text-[#e8a23a] mb-1">
+              <p style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] tracking-[0.15em] uppercase text-accent-load mb-1">
                 {data.mismatch.label}
               </p>
-              <p className="text-[13px] text-[#f2f0ec] leading-snug">
+              <p className="text-[13px] text-ink leading-snug">
                 {data.mismatch.description}
               </p>
               <button
                 onClick={onWhy}
                 style={{ fontFamily: "var(--font-mono)" }}
-                className="text-[11px] text-[#e8a23a] mt-2 underline underline-offset-2 hover:text-[#f2c47a] transition-colors"
+                className="text-[11px] text-accent-load mt-2 underline underline-offset-2 hover:opacity-70 transition-opacity"
               >
                 See why →
               </button>
@@ -176,13 +178,13 @@ export default function TodayScreen({ onCheckIn, onWhy }: Props) {
       )}
 
       {/* Dynamic Biometric Contributors from API */}
-      <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl divide-y divide-[#2a2a2a]">
+      <div className="bg-surface border border-border rounded-2xl divide-y divide-border">
         {data.contributors.map((c, idx) => (
           <div key={idx} className="flex items-center justify-between px-4 py-3">
-            <span style={{ fontFamily: "var(--font-mono)" }} className="text-[11px] text-[#888880] uppercase tracking-wide">
+            <span style={{ fontFamily: "var(--font-mono)" }} className="text-[11px] text-muted uppercase tracking-wide">
               {c.feature}
             </span>
-            <span style={{ fontFamily: "var(--font-mono)" }} className="text-[11px] text-[#e85d3a]">
+            <span style={{ fontFamily: "var(--font-mono)" }} className="text-[11px] text-accent-stress">
               {c.description}
             </span>
           </div>
@@ -192,7 +194,7 @@ export default function TodayScreen({ onCheckIn, onWhy }: Props) {
       {/* CTA */}
       <button
         onClick={onCheckIn}
-        className="w-full py-3.5 bg-[#f2f0ec] text-[#0d0d0d] rounded-2xl hover:opacity-90 active:opacity-80 transition-opacity"
+        className="w-full py-3.5 bg-inverse text-on-inverse rounded-2xl hover:opacity-90 active:opacity-80 transition-opacity"
         style={{ fontFamily: "var(--font-body)", fontWeight: 500 }}
       >
         Log today's stress

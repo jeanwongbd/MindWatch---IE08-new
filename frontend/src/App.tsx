@@ -3,6 +3,7 @@ import TodayScreen from "./screens/TodayScreen";
 import CheckInScreen from "./screens/CheckInScreen";
 import WhyScreen from "./screens/WhyScreen";
 import TrendsScreen from "./screens/TrendsScreen";
+import { C } from "./theme";
 
 const SCREENS = ["Today", "Check-in", "Why?", "Trends"] as const;
 type Screen = (typeof SCREENS)[number];
@@ -20,19 +21,19 @@ export default function App() {
   return (
     <div
       style={{ fontFamily: "var(--font-body)" }}
-      className="h-screen bg-[#0d0d0d] flex items-center justify-center p-4 overflow-hidden"
+      className="h-screen bg-page flex items-center justify-center p-4 overflow-hidden"
     >
       {/* Phone shell */}
-      <div className="relative w-[375px] h-[812px] bg-[#0d0d0d] rounded-[44px] overflow-hidden border border-[#2a2a2a] shadow-[0_0_80px_rgba(0,0,0,0.8)] flex flex-col">
+      <div className="relative w-[375px] h-[812px] bg-background rounded-[44px] overflow-hidden border border-border shadow-[0_0_80px_rgba(0,0,0,0.12)] flex flex-col">
         {/* Status bar */}
         <div className="flex items-center justify-between px-7 pt-4 pb-2 flex-shrink-0">
-          <span style={{ fontFamily: "var(--font-mono)" }} className="text-[11px] text-[#888880]">
+          <span style={{ fontFamily: "var(--font-mono)" }} className="text-[11px] text-muted">
             9:41
           </span>
-          <div className="w-24 h-6 bg-[#161616] rounded-full" />
+          <div className="w-24 h-6 bg-surface-raised rounded-full" />
           <div className="flex gap-1 items-center">
-            <div className="w-4 h-2.5 rounded-sm bg-[#4fb89a]" />
-            <span style={{ fontFamily: "var(--font-mono)" }} className="text-[11px] text-[#888880]">
+            <div className="w-4 h-2.5 rounded-sm bg-accent-calm" />
+            <span style={{ fontFamily: "var(--font-mono)" }} className="text-[11px] text-muted">
               87%
             </span>
           </div>
@@ -44,23 +45,21 @@ export default function App() {
         </div>
 
         {/* Bottom nav */}
-        <div className="flex-shrink-0 border-t border-[#2a2a2a] bg-[#0d0d0d] pb-6">
+        <div className="flex-shrink-0 border-t border-border bg-background pb-6">
           <div className="flex">
             {SCREENS.map((s) => (
               <button
                 key={s}
                 onClick={() => setActive(s)}
                 className={`flex-1 py-3 text-center transition-colors ${
-                  active === s
-                    ? "text-[#f2f0ec]"
-                    : "text-[#888880] hover:text-[#f2f0ec]"
+                  active === s ? "text-ink" : "text-muted hover:text-ink"
                 }`}
               >
                 <NavIcon name={s} active={active === s} />
                 <span
                   style={{ fontFamily: "var(--font-mono)" }}
                   className={`block text-[9px] mt-0.5 tracking-wider uppercase ${
-                    active === s ? "text-[#f2f0ec]" : "text-[#555550]"
+                    active === s ? "text-ink" : "text-dim"
                   }`}
                 >
                   {s}
@@ -79,8 +78,8 @@ export default function App() {
             onClick={() => setActive(s)}
             className={`px-3 py-1 rounded-full text-xs transition-colors ${
               active === s
-                ? "bg-[#f2f0ec] text-[#0d0d0d]"
-                : "bg-[#1f1f1f] text-[#888880] hover:text-[#f2f0ec]"
+                ? "bg-inverse text-on-inverse"
+                : "bg-surface-raised text-muted hover:text-ink"
             }`}
             style={{ fontFamily: "var(--font-mono)" }}
           >
@@ -93,29 +92,45 @@ export default function App() {
 }
 
 function NavIcon({ name, active }: { name: Screen; active: boolean }) {
-  const color = active ? "#f2f0ec" : "#555550";
+  // SVG presentation attributes don't resolve var(), so paint via CSS properties.
+  const color = active ? C.ink : C.dim;
+  const stroke = { stroke: color };
+  const fill = { fill: color };
   const icons: Record<Screen, React.ReactNode> = {
     Today: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="mx-auto">
-        <circle cx="10" cy="10" r="7" stroke={color} strokeWidth="1.5" />
-        <circle cx="10" cy="10" r="2.5" fill={color} />
+        <circle cx="10" cy="10" r="7" style={stroke} strokeWidth="1.5" fill="none" />
+        <circle cx="10" cy="10" r="2.5" style={fill} />
       </svg>
     ),
     "Check-in": (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="mx-auto">
-        <rect x="3" y="3" width="14" height="14" rx="3" stroke={color} strokeWidth="1.5" />
-        <path d="M7 10h6M10 7v6" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+        <rect x="3" y="3" width="14" height="14" rx="3" style={stroke} strokeWidth="1.5" fill="none" />
+        <path d="M7 10h6M10 7v6" style={stroke} strokeWidth="1.5" strokeLinecap="round" fill="none" />
       </svg>
     ),
     "Why?": (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="mx-auto">
-        <circle cx="10" cy="10" r="7" stroke={color} strokeWidth="1.5" />
-        <path d="M10 13.5v-.5M10 6.5c0 0 2 .5 2 2.5s-2 2-2 3" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+        <circle cx="10" cy="10" r="7" style={stroke} strokeWidth="1.5" fill="none" />
+        <path
+          d="M10 13.5v-.5M10 6.5c0 0 2 .5 2 2.5s-2 2-2 3"
+          style={stroke}
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          fill="none"
+        />
       </svg>
     ),
     Trends: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="mx-auto">
-        <path d="M3 14l4-4 3 2 4-5 3 2" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path
+          d="M3 14l4-4 3 2 4-5 3 2"
+          style={stroke}
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
       </svg>
     ),
   };

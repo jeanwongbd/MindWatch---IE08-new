@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { C } from "../theme";
+import { api } from "../api";
 
 interface Props {
   onBack: () => void;
@@ -19,9 +21,9 @@ interface TodayData {
 }
 
 const severityColor = {
-  high: "#e85d3a",
-  moderate: "#e8a23a",
-  low: "#4fb89a",
+  high: C.stress,
+  moderate: C.load,
+  low: C.calm,
 };
 
 const FEATURE_METADATA: Record<string, { icon: string; label: string; description: string }> = {
@@ -47,7 +49,7 @@ export default function WhyScreen({ onBack }: Props) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("http://localhost:8000/profiles/demo01/today")
+    fetch(api("/profiles/demo01/today"))
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load contributor breakdown");
         return res.json();
@@ -64,7 +66,7 @@ export default function WhyScreen({ onBack }: Props) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-12 text-[#888880] font-mono text-xs">
+      <div className="flex items-center justify-center p-12 text-muted font-mono text-xs">
         Loading contributor breakdown...
       </div>
     );
@@ -79,25 +81,25 @@ export default function WhyScreen({ onBack }: Props) {
         <button
           onClick={onBack}
           style={{ fontFamily: "var(--font-mono)" }}
-          className="text-[11px] text-[#888880] hover:text-[#f2f0ec] transition-colors mb-3 flex items-center gap-1"
+          className="text-[11px] text-muted hover:text-ink transition-colors mb-3 flex items-center gap-1"
         >
           ← Back
         </button>
-        <p style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] tracking-[0.2em] uppercase text-[#888880]">
+        <p style={{ fontFamily: "var(--font-mono)" }} className="text-[10px] tracking-[0.2em] uppercase text-muted">
           Body analysis
         </p>
-        <h1 style={{ fontFamily: "var(--font-display)" }} className="text-2xl font-light text-[#f2f0ec] mt-0.5 leading-snug">
+        <h1 style={{ fontFamily: "var(--font-display)" }} className="text-2xl font-light text-ink mt-0.5 leading-snug">
           {data?.mismatch.label || "Physiological Breakdown"}
         </h1>
-        <p className="text-xs text-[#888880] mt-1">
+        <p className="text-xs text-muted mt-1">
           {data?.mismatch.description}
         </p>
       </div>
 
       {/* Summary chip */}
-      <div className="flex items-center gap-2 bg-[#1f1f1f] border border-[#2a2a2a] rounded-full px-4 py-2 w-fit">
-        <div className="w-2 h-2 rounded-full bg-[#e8a23a]" />
-        <span style={{ fontFamily: "var(--font-mono)" }} className="text-[11px] text-[#e8a23a]">
+      <div className="flex items-center gap-2 bg-surface-raised border border-border rounded-full px-4 py-2 w-fit">
+        <div className="w-2 h-2 rounded-full bg-accent-load" />
+        <span style={{ fontFamily: "var(--font-mono)" }} className="text-[11px] text-accent-load">
           {contributors.length} key biometric drivers
         </span>
       </div>
@@ -114,13 +116,13 @@ export default function WhyScreen({ onBack }: Props) {
           return (
             <div
               key={f.feature}
-              className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4 space-y-3"
+              className="bg-surface border border-border rounded-2xl p-4 space-y-3"
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2.5">
                   <span className="text-lg">{meta.icon}</span>
                   <div>
-                    <p className="text-[14px] font-medium text-[#f2f0ec]">{meta.label}</p>
+                    <p className="text-[14px] font-medium text-ink">{meta.label}</p>
                     <p
                       style={{ fontFamily: "var(--font-mono)", color: severityColor.high }}
                       className="text-[10px] mt-0.5"
@@ -132,7 +134,7 @@ export default function WhyScreen({ onBack }: Props) {
               </div>
 
               {/* Deviation visual */}
-              <div className="relative h-1 bg-[#2a2a2a] rounded-full overflow-hidden">
+              <div className="relative h-1 bg-border rounded-full overflow-hidden">
                 <div
                   className="absolute left-0 top-0 h-full rounded-full"
                   style={{
@@ -142,15 +144,15 @@ export default function WhyScreen({ onBack }: Props) {
                 />
               </div>
 
-              <p className="text-[12px] text-[#888880] leading-relaxed">{meta.description}</p>
+              <p className="text-[12px] text-muted leading-relaxed">{meta.description}</p>
             </div>
           );
         })}
       </div>
 
       {/* Footer note */}
-      <div className="border-t border-[#2a2a2a] pt-4">
-        <p className="text-[11px] text-[#555550] leading-relaxed">
+      <div className="border-t border-border pt-4">
+        <p className="text-[11px] text-dim leading-relaxed">
           Body load is computed from HRV, resting HR, respiratory rate, and sleep metrics. It reflects physiological burden, not emotional state.
         </p>
       </div>
