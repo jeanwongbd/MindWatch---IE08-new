@@ -224,3 +224,5 @@ __marimo__/
 backend/runtime/
 .venv/
 !frontend/.env.example
+# JetBrains local caches (project config in .idea/*.xml is tracked)
+.idea/caches/
