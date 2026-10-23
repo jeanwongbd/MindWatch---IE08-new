@@ -259,3 +259,13 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Editable local demo state; immutable fixtures and model are committed.
+backend/runtime/
+.venv/
+!frontend/.env.example
+# JetBrains local caches (project config in .idea/*.xml is tracked)
+.idea/caches/
