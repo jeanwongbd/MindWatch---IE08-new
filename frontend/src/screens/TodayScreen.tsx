@@ -36,7 +36,7 @@ export default function TodayScreen({
   const [loading, setLoading] = useState(!initialData);
   const [error, setError] = useState<string | null>(null);
 
-  // Live telemetry state from Fitbit / Google Fitness API
+  // Live telemetry state from Fitbit sync
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [liveTelemetry, setLiveTelemetry] = useState<{
     heartRate: number;
@@ -44,7 +44,7 @@ export default function TodayScreen({
     syncedAt: string;
   } | null>(null);
 
-  // If data is passed as a prop from parent, synchronize it
+  // Synchronize incoming props
   useEffect(() => {
     if (initialData) {
       setData(initialData);
@@ -81,7 +81,6 @@ export default function TodayScreen({
       const res = await fetch(`${API_BASE_URL}/api/fitbit/sync-live`);
 
       if (res.status === 401) {
-        // Not authenticated yet, redirect to Google OAuth flow
         window.location.href = `${API_BASE_URL}/api/fitbit/login`;
         return;
       }
@@ -112,8 +111,7 @@ export default function TodayScreen({
   if (error || !data) {
     return (
       <div className="p-6 text-sm text-accent-stress font-mono">
-        Could not connect to FastAPI server at {API_BASE_URL}. Is Render
-        running?
+        Could not connect to FastAPI server at {API_BASE_URL}.
       </div>
     );
   }
@@ -124,46 +122,58 @@ export default function TodayScreen({
     stressScale === 10 ? stressVal : Math.round(stressVal / 10);
 
   const estimate = data.wearable_estimate || {};
-  // Use live wearable score if user synced, otherwise fallback to model estimate
+
+  // Calculate active load value (live sync override or model baseline)
   const currentLoad = liveTelemetry
     ? liveTelemetry.bodyLoad
     : (estimate.value ?? data.physiological_load?.value ?? 50);
 
-  const comparison = data.comparison ||
-    data.mismatch || {
-      label: "Comparison ready",
+  // Comparison logic: Compare normalized self-report (0-100) vs physiological load
+  const perceivedHundred = normalizedStress * 10;
+  const diff = currentLoad - perceivedHundred;
+
+  let comparison = {
+    label: "SCORES TALLY WITH BIOMETRICS",
+    description:
+      "Your reported stress matches your body's physiological indicators.",
+    state: "balanced",
+  };
+
+  if (diff > 20) {
+    comparison = {
+      label: "REPORTED LOWER, LOAD HIGHER",
       description:
-        "Evaluating balance between perceived stress and physical load.",
-      state: "balanced",
+        "Your body is showing signs of acute sympathetic load beyond what you self-reported.",
+      state: "estimate_high_reported_low",
     };
+  } else if (diff < -20) {
+    comparison = {
+      label: "REPORTED HIGHER, LOAD LOWER",
+      description:
+        "Your perceived mental stress is higher than your wearable physiological indicators.",
+      state: "estimate_low_reported_high",
+    };
+  } else if (!liveTelemetry && (data.comparison || data.mismatch)) {
+    // If not synced yet, keep the default dataset comparison
+    comparison = data.comparison || data.mismatch;
+  }
 
-  const isMismatch =
-    comparison.state === "estimate_high_reported_low" ||
-    comparison.state === "estimate_low_reported_high" ||
-    comparison.state === "high_body_low_perceived" ||
-    (comparison.state && comparison.state.includes("mismatch"));
+  const isMismatch = comparison.state !== "balanced";
 
-  const contributors = liveTelemetry
-    ? [
-        {
-          feature: "heart rate",
-          description: `Live sensor: ${liveTelemetry.heartRate} bpm`,
-        },
-        {
-          feature: "sync time",
-          description: new Date(liveTelemetry.syncedAt).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-        },
-      ]
-    : data.contributors || [
-        {
-          feature: "sleep",
-          description: "Short sleep suppresses autonomic recovery",
-        },
-        { feature: "hrv", description: "Elevated sympathetic load detected" },
-      ];
+  // Retain sleep factor from model alongside live heart rate
+  const contributors = [
+    {
+      feature: "sleep recovery",
+      description:
+        data.sleep_summary || "Short sleep suppresses autonomic recovery",
+    },
+    {
+      feature: "autonomic pulse",
+      description: liveTelemetry
+        ? `Live: ${liveTelemetry.heartRate} bpm (${currentLoad >= 50 ? "Elevated load" : "Around baseline"})`
+        : "Resting pulse baseline: 68 bpm",
+    },
+  ];
 
   return (
     <div className="px-6 py-4 space-y-5">
@@ -312,7 +322,7 @@ export default function TodayScreen({
                 isMismatch ? "text-accent-load" : "text-accent-calm"
               }`}
             >
-              {comparison.label || "Stress Comparison"}
+              {comparison.label}
             </p>
             <p className="text-[13px] text-ink leading-snug">
               {comparison.description}
@@ -328,7 +338,7 @@ export default function TodayScreen({
         </div>
       </div>
 
-      {/* Dynamic Biometric Contributors from API */}
+      {/* Dynamic Biometric Contributors (Multi-Modal: Sleep + Pulse) */}
       <div className="bg-surface border border-border rounded-2xl divide-y divide-border">
         {contributors.map((c: any, idx: number) => (
           <div
