@@ -21,6 +21,7 @@ import numpy as np
 from backend.auth import router as auth_router
 from backend.checkins import router as checkins_router
 from backend.db import make_engine, run_migrations
+from backend.summary import router as summary_router
 from backend.settings import get_settings
 
 logging.basicConfig(level=logging.INFO)
@@ -451,6 +452,7 @@ def create_app(model_path=None, state_path=None, settings=None):
     app.state.invite_codes = settings.invite_codes
     app.include_router(auth_router)
     app.include_router(checkins_router)
+    app.include_router(summary_router)
 
     app.add_middleware(
         CORSMiddleware,

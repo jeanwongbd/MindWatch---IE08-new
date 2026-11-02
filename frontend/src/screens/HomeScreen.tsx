@@ -1,28 +1,154 @@
+import { useEffect, useState } from "react";
 import type { AuthUser } from "../api";
-import AuthFrame, { primaryButtonClass } from "./AuthFrame";
+import { fetchSummary, type Summary } from "../summary";
+import AuthFrame, { friendlyError, linkButtonClass, primaryButtonClass } from "./AuthFrame";
 
 interface Props {
   user: AuthUser;
   onCheckIn: () => void;
+  onTrends: () => void;
   onSignOut: () => void;
 }
 
-/** Placeholder for the signed-in Home. The real Home replaces it in a later task. */
-export default function HomeScreen({ user, onCheckIn, onSignOut }: Props) {
+const COMPARISON = {
+  higher: "Higher than your usual",
+  about: "About your usual",
+  lower: "Lower than your usual",
+} as const;
+
+/** One sentence for where the person is, from how many check-ins they have. */
+function stageMessage(count: number, goal: number): string {
+  if (count === 0) return "Welcome. Your first check-in sets your starting point.";
+  if (count < 3) return "Check in for a few more days to see what's usual for you.";
+  if (count >= goal) return `You've done ${goal} check-ins. Your usual levels now draw on all of them.`;
+  return "";
+}
+
+const secondaryButtonClass =
+  "w-full py-3.5 border border-border text-ink rounded-2xl hover:opacity-90 active:opacity-80 transition-opacity";
+
+/** The signed-in Home. Plain descriptions of the person's own check-ins, never a cause or a prediction. */
+export default function HomeScreen({ user, onCheckIn, onTrends, onSignOut }: Props) {
+  const [summary, setSummary] = useState<Summary | null>(null);
+  const [error, setError] = useState("");
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    let live = true;
+    setError("");
+    fetchSummary()
+      .then((s) => {
+        if (live) setSummary(s);
+      })
+      .catch((e) => {
+        if (live) setError(friendlyError(e));
+      });
+    return () => {
+      live = false;
+    };
+  }, [attempt]);
+
   return (
     <AuthFrame title="Home">
-      <p className="text-sm text-muted text-center">
+      <p className="text-xs text-muted text-center">
         Signed in as <span className="text-ink">{user.email}</span>
       </p>
-      <p className="text-xs text-dim text-center">Your personal Home is coming soon.</p>
+
+      {error && (
+        <div className="space-y-2 text-center">
+          <p role="alert" className="text-xs text-accent-stress">
+            {error}
+          </p>
+          <button type="button" onClick={() => setAttempt((n) => n + 1)} className={linkButtonClass}>
+            Try again
+          </button>
+        </div>
+      )}
+      {!error && !summary && (
+        <p role="status" className="text-xs text-muted text-center font-mono">
+          Loading your summary…
+        </p>
+      )}
+
+      {summary && (
+        <div className="space-y-4">
+          <div>
+            <p className="text-sm text-ink text-center">
+              {summary.progress.done} of {summary.progress.goal} check-ins
+            </p>
+            <div
+              role="progressbar"
+              aria-label="Check-ins so far"
+              aria-valuemin={0}
+              aria-valuemax={summary.progress.goal}
+              aria-valuenow={summary.progress.done}
+              className="h-1.5 bg-border rounded mt-1.5"
+            >
+              <div
+                className="h-1.5 bg-ink rounded"
+                style={{ width: `${(summary.progress.done / summary.progress.goal) * 100}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-border p-4 text-center">
+            {summary.today_checkin ? (
+              <p className="text-sm text-ink">
+                Today: {summary.today_checkin.stress} out of 10
+                {summary.today_checkin.word ? ` · ${summary.today_checkin.word}` : ""}
+              </p>
+            ) : (
+              <p className="text-sm text-muted">You haven't checked in today.</p>
+            )}
+          </div>
+
+          {stageMessage(summary.count, summary.progress.goal) && (
+            <p className="text-xs text-muted text-center">{stageMessage(summary.count, summary.progress.goal)}</p>
+          )}
+
+          {summary.usual && (
+            <div className="rounded-2xl border border-border p-4 space-y-1.5 text-sm text-ink">
+              <p>
+                Your usual: {summary.usual.value} out of 10
+                <span className="text-xs text-muted whitespace-nowrap"> (from {summary.usual.based_on} check-ins)</span>
+              </p>
+              {summary.recent_7d ? (
+                <p>
+                  Last 7 days: {summary.recent_7d.value} out of 10
+                  <span className="text-xs text-muted whitespace-nowrap"> (from {summary.recent_7d.based_on} check-ins)</span>
+                </p>
+              ) : (
+                <p className="text-xs text-muted">Last 7 days: not enough check-ins this week yet (it needs 3).</p>
+              )}
+              {summary.today_vs_usual && (
+                <p className="pt-1.5 border-t border-border">{COMPARISON[summary.today_vs_usual.label]}</p>
+              )}
+            </div>
+          )}
+
+          {summary.recent_words.length > 0 && (
+            <div className="text-center">
+              <p className="text-xs text-muted mb-1.5">Your words this week</p>
+              <ul className="flex flex-wrap gap-2 justify-center" aria-label="Your words this week">
+                {summary.recent_words.map((w) => (
+                  <li key={w.word} className="px-3 py-1 rounded-full border border-border text-sm text-ink">
+                    {w.word}
+                    {w.count > 1 ? ` (${w.count})` : ""}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
       <button onClick={onCheckIn} className={primaryButtonClass} style={{ fontWeight: 500 }}>
-        Check in today
+        {summary?.today_checkin ? "Change today's check-in" : "Check in today"}
       </button>
-      <button
-        onClick={onSignOut}
-        className="w-full py-3.5 border border-border text-ink rounded-2xl hover:opacity-90"
-        style={{ fontWeight: 500 }}
-      >
+      <button onClick={onTrends} className={secondaryButtonClass} style={{ fontWeight: 500 }}>
+        See your trends
+      </button>
+      <button onClick={onSignOut} className={secondaryButtonClass} style={{ fontWeight: 500 }}>
         Sign out
       </button>
     </AuthFrame>

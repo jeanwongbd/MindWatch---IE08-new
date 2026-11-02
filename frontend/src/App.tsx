@@ -7,6 +7,7 @@ import ConsentScreen from "./screens/ConsentScreen";
 import CreateAccountScreen from "./screens/CreateAccountScreen";
 import HomeScreen from "./screens/HomeScreen";
 import DailyCheckInScreen from "./screens/DailyCheckInScreen";
+import PersonalTrendsScreen from "./screens/PersonalTrendsScreen";
 import AuthFrame, { friendlyError, linkButtonClass, primaryButtonClass } from "./screens/AuthFrame";
 import { ACCOUNTS_ENABLED } from "./config";
 import { api, ApiError, type AuthSession, type AuthUser } from "./api";
@@ -15,7 +16,7 @@ import { clearAnswers, loadAnswers, saveAnswers } from "./onboarding";
 import { clearToken, getToken, onSessionExpired, setToken } from "./session";
 import { useServerWaking } from "./useServerWaking";
 
-type View = "welcome" | "signin" | "calibration" | "consent" | "signup" | "demo" | "home" | "checkin";
+type View = "welcome" | "signin" | "calibration" | "consent" | "signup" | "demo" | "home" | "checkin" | "trends";
 
 const EXPIRED = "Your session expired. Please sign in again.";
 
@@ -187,8 +188,16 @@ export default function App() {
       />
     );
   if (view === "home" && user)
-    return <HomeScreen user={user} onCheckIn={() => setView("checkin")} onSignOut={signOut} />;
+    return (
+      <HomeScreen
+        user={user}
+        onCheckIn={() => setView("checkin")}
+        onTrends={() => setView("trends")}
+        onSignOut={signOut}
+      />
+    );
   if (view === "checkin" && user) return <DailyCheckInScreen onBack={() => setView("home")} />;
+  if (view === "trends" && user) return <PersonalTrendsScreen onBack={() => setView("home")} />;
 
   return (
     <WelcomeScreen

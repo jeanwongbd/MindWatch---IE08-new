@@ -157,7 +157,9 @@ describe("nothing leaves the phone before the account is created", () => {
 
     tap("Create account");
     await screen.findByText(USER.email);
-    expect(spy).toHaveBeenCalledTimes(1);
+    // Exactly one signup, and it is the first call of all. (Home then loads its own summary.)
+    expect(callsTo(spy, "POST /auth/signup")).toHaveLength(1);
+    expect(String(spy.mock.calls[0][0])).toMatch(/\/auth\/signup$/);
     const [url] = callsTo(spy, "POST /auth/signup")[0];
     expect(String(url)).not.toMatch(/sleep|stress|activity|wears|=/); // no answers in the address
   });
