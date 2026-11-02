@@ -44,6 +44,11 @@ export interface DemoRecord {
     description: string;
   };
   measurements: Record<string, number | null>;
+  contributors?: {
+    feature: string;
+    direction: string;
+    description: string;
+  }[];
   imputed_features: string[];
   limitation: string;
 }
