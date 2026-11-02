@@ -250,13 +250,13 @@ class Demo:
                 "contributors": [
                     {
                         "feature": "sleep",
-                        "direction": "negative",
-                        "description": "Synthetic fixture simulated deficit",
+                        "direction": "neutral",
+                        "description": "Synthetic scenario: no measured sleep data",
                     },
                     {
                         "feature": "hrv",
-                        "direction": "negative",
-                        "description": "Synthetic fixture simulated autonomic strain",
+                        "direction": "neutral",
+                        "description": "Synthetic scenario: no measured HRV data",
                     },
                 ],
                 "measurements": {},
@@ -342,37 +342,35 @@ class Demo:
 
         comparison_info = comparison(wearable_val, reported["normalized_0_100"])
 
-        contributors = []
         overall_score = inputs.get("overall_score")
-        if overall_score and overall_score < 75:
-            contributors.append(
-                {
-                    "feature": "sleep",
-                    "direction": "negative",
-                    "description": f"{round((80 - overall_score) / 10, 1)} hrs below usual sleep restoration",
-                }
-            )
-        if deviation is not None and deviation < 0:
-            contributors.append(
-                {
-                    "feature": "hrv",
-                    "direction": "negative",
-                    "description": f"{abs(round(deviation))}% below your usual HRV",
-                }
-            )
-        if not contributors:
-            contributors = [
-                {
-                    "feature": "hrv",
-                    "direction": "positive",
-                    "description": "Within normal baseline variation",
-                },
-                {
-                    "feature": "sleep",
-                    "direction": "positive",
-                    "description": "Optimal overnight recovery duration",
-                },
-            ]
+        if overall_score is None:
+            sleep_contributor = {
+                "feature": "sleep",
+                "direction": "neutral",
+                "description": "No sleep score for this date",
+            }
+        else:
+            sleep_contributor = {
+                "feature": "sleep",
+                "direction": "negative" if overall_score < 75 else "positive",
+                "description": f"Sleep score {overall_score:.0f} / 100",
+            }
+
+        if deviation is None:
+            hrv_contributor = {
+                "feature": "hrv",
+                "direction": "neutral",
+                "description": "Not enough HRV data for this date",
+            }
+        else:
+            position = "below" if deviation < 0 else "above"
+            hrv_contributor = {
+                "feature": "hrv",
+                "direction": "negative" if deviation < 0 else "positive",
+                "description": f"{abs(deviation):.1f} ms {position} your earlier average",
+            }
+
+        contributors = [sleep_contributor, hrv_contributor]
 
         return {
             "user_id": self.profile,

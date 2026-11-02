@@ -27,6 +27,12 @@ function stressLabel(v: number) {
   return "High stress";
 }
 
+function contributorClass(direction: string) {
+  if (direction === "negative") return "text-accent-stress";
+  if (direction === "positive") return "text-accent-calm";
+  return "text-muted";
+}
+
 export default function TodayScreen({
   data: initialData,
   onCheckIn,
@@ -174,19 +180,18 @@ export default function TodayScreen({
     comparison.state === "estimate_high_reported_low" ||
     comparison.state === "estimate_low_reported_high";
 
-  // Retain sleep factor from model alongside live heart rate
+  // Backend contributors, plus the live reading when one exists
   const contributors = [
-    {
-      feature: "sleep recovery",
-      description:
-        data.sleep_summary || "Short sleep suppresses autonomic recovery",
-    },
-    {
-      feature: "autonomic pulse",
-      description: liveTelemetry
-        ? `Live: ${liveTelemetry.heartRate} bpm (${currentLoad >= 50 ? "Elevated load" : "Around baseline"})`
-        : "Resting pulse baseline: 68 bpm",
-    },
+    ...(data.contributors ?? []),
+    ...(liveTelemetry
+      ? [
+          {
+            feature: "live pulse",
+            direction: "neutral",
+            description: `${liveTelemetry.heartRate} bpm (${liveTelemetry.bodyLoad >= 50 ? "Elevated load" : "Below load threshold"})`,
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -355,7 +360,7 @@ export default function TodayScreen({
         {contributors.map((c: any, idx: number) => (
           <div
             key={idx}
-            className="flex items-center justify-between px-4 py-3"
+            className="flex items-center justify-between gap-3 px-4 py-3"
           >
             <span
               style={{ fontFamily: "var(--font-mono)" }}
@@ -365,7 +370,7 @@ export default function TodayScreen({
             </span>
             <span
               style={{ fontFamily: "var(--font-mono)" }}
-              className="text-[11px] text-accent-stress"
+              className={`text-[11px] text-right ${contributorClass(c.direction)}`}
             >
               {c.description}
             </span>
