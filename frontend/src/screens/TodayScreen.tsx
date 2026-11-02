@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { type DemoRecord, number } from "../api";
+import { API_BASE_URL, type DemoRecord, number } from "../api";
 import { C } from "../theme";
 
 interface Props {
@@ -7,8 +7,6 @@ interface Props {
   onCheckIn: () => void;
   onWhy: () => void;
 }
-
-const API_BASE_URL = "https://mindwatch-ie08.onrender.com";
 
 function stressColor(v: number) {
   if (v <= 3) return C.calm;
