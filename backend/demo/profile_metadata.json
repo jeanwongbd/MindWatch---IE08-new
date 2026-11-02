@@ -35,9 +35,9 @@
   "ridge_alpha": 100,
   "limitation": "Provisional retrospective SSAQS daily replay. Source timing remains unresolved; some full-day measurements may occur after check-in. This is not a validated real-time prediction system.",
   "versions": {
-    "pandas": "3.0.5",
-    "numpy": "2.5.2",
-    "scikit-learn": "1.9.1",
-    "joblib": "1.6.0"
+    "pandas": "2.2.3",
+    "numpy": "2.2.5",
+    "scikit-learn": "1.6.1",
+    "joblib": "1.4.2"
   }
 }
