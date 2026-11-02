@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { API_BASE_URL, type DemoRecord, number } from "../api";
+import { SYNC_ENABLED } from "../config";
+import { API_BASE_URL, ApiError, api, type DemoRecord, number } from "../api";
 import { C } from "../theme";
 
 interface Props {
@@ -68,14 +69,7 @@ export default function TodayScreen({
   useEffect(() => {
     if (initialData) return;
 
-    fetch(`${API_BASE_URL}/today`)
-      .then((res) => {
-        if (!res.ok)
-          return fetch(`${API_BASE_URL}/profiles/p01/today`).then((r) =>
-            r.json(),
-          );
-        return res.json();
-      })
+    api<any>("/today")
       .then((json) => {
         setData(json);
         setLoading(false);
@@ -91,15 +85,8 @@ export default function TodayScreen({
     try {
       setIsSyncing(true);
       setSyncMessage(null);
-      const res = await fetch(`${API_BASE_URL}/api/fitbit/sync-live`);
-
-      if (res.status === 401) {
-        window.location.href = `${API_BASE_URL}/api/fitbit/login`;
-        return;
-      }
-
-      const json = await res.json().catch(() => null);
-      if (res.ok && json?.status === "success") {
+      const json = await api<any>("/api/fitbit/sync-live");
+      if (json?.status === "success") {
         setLiveTelemetry({
           heartRate: json.latest_heart_rate,
           bodyLoad: json.body_load,
@@ -109,15 +96,19 @@ export default function TodayScreen({
       }
 
       setLiveTelemetry(null);
-      setSyncMessage(
-        res.ok
-          ? "No recent heart rate data from your watch."
-          : "Couldn't reach Google. Please try again.",
-      );
+      setSyncMessage("No recent heart rate data from your watch.");
     } catch (err: any) {
+      if (err instanceof ApiError && err.status === 401) {
+        window.location.href = `${API_BASE_URL}/api/fitbit/login`;
+        return;
+      }
       console.error("Live sync failed:", err);
       setLiveTelemetry(null);
-      setSyncMessage("Couldn't sync right now. Please try again.");
+      setSyncMessage(
+        err instanceof ApiError && err.status
+          ? "Couldn't reach Google. Please try again."
+          : "Couldn't sync right now. Please try again.",
+      );
     } finally {
       setIsSyncing(false);
     }
@@ -309,19 +300,27 @@ export default function TodayScreen({
               {currentLoad == null
                 ? "Not enough data"
                 : currentLoad >= 50
-                  ? "Higher than usual"
-                  : "Around baseline"}
+                  ? "At or above 50"
+                  : "Below 50"}
             </p>
             <p className="text-[9px] text-dim mt-0.5 truncate">
               {liveTelemetry
                 ? `Live: ${liveTelemetry.heartRate} bpm`
-                : estimate.method === "synthetic_fixture"
-                  ? "Synthetic fixture"
-                  : "Ridge V2 Personal model"}
+                : currentLoad == null
+                  ? "No estimate"
+                  : estimate.method === "synthetic_fixture"
+                    ? "Synthetic fixture"
+                    : "Ridge V2 Personal model"}
             </p>
           </div>
         </div>
       </div>
+
+      {!liveTelemetry && currentLoad != null && data.imputed_features?.length > 0 && (
+        <p className="text-[11px] text-accent-load text-center">
+          This estimate used filled-in values for {data.imputed_features.length} of 4 inputs.
+        </p>
+      )}
 
       {/* Comparison / Mismatch Banner */}
       <div
@@ -384,7 +383,7 @@ export default function TodayScreen({
       </div>
 
       {/* Live Wearable Sync Trigger */}
-      {data.mode !== "synthetic_scenario" && (
+      {SYNC_ENABLED && data.mode !== "synthetic_scenario" && (
       <>
       <button
         onClick={handleLiveSync}
