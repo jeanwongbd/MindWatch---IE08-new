@@ -126,11 +126,11 @@ export default function TodayScreen({
   // Calculate active load value (live sync override or model baseline)
   const currentLoad = liveTelemetry
     ? liveTelemetry.bodyLoad
-    : (estimate.value ?? data.physiological_load?.value ?? 50);
+    : (estimate.value ?? null);
 
   // Comparison logic: Compare normalized self-report (0-100) vs physiological load
   const perceivedHundred = normalizedStress * 10;
-  const diff = currentLoad - perceivedHundred;
+  const diff = currentLoad == null ? 0 : currentLoad - perceivedHundred;
 
   let comparison = {
     label: "SCORES TALLY WITH BIOMETRICS",
@@ -139,7 +139,10 @@ export default function TodayScreen({
     state: "balanced",
   };
 
-  if (diff > 20) {
+  if (!liveTelemetry && (data.comparison || data.mismatch)) {
+    // Not synced: show the backend's own comparison unchanged
+    comparison = data.comparison || data.mismatch;
+  } else if (diff > 20) {
     comparison = {
       label: "REPORTED LOWER, LOAD HIGHER",
       description:
@@ -153,12 +156,11 @@ export default function TodayScreen({
         "Your perceived mental stress is higher than your wearable physiological indicators.",
       state: "estimate_low_reported_high",
     };
-  } else if (!liveTelemetry && (data.comparison || data.mismatch)) {
-    // If not synced yet, keep the default dataset comparison
-    comparison = data.comparison || data.mismatch;
   }
 
-  const isMismatch = comparison.state !== "balanced";
+  const isMismatch =
+    comparison.state === "estimate_high_reported_low" ||
+    comparison.state === "estimate_low_reported_high";
 
   // Retain sleep factor from model alongside live heart rate
   const contributors = [
@@ -261,17 +263,11 @@ export default function TodayScreen({
               style={{
                 fontFamily: "var(--font-display)",
                 lineHeight: 1,
-                color: loadColor(Number(currentLoad)),
+                color: currentLoad == null ? C.dim : loadColor(Number(currentLoad)),
               }}
               className="text-[48px] font-light transition-colors duration-200"
             >
-              {estimate.value == null &&
-              data.physiological_load?.value == null &&
-              !liveTelemetry
-                ? "--"
-                : typeof number === "function"
-                  ? number(currentLoad)
-                  : Math.round(currentLoad)}
+              {currentLoad == null ? "--" : number(currentLoad)}
             </span>
             <span
               style={{ fontFamily: "var(--font-display)" }}
@@ -284,11 +280,15 @@ export default function TodayScreen({
             <p
               style={{
                 fontFamily: "var(--font-mono)",
-                color: loadColor(Number(currentLoad)),
+                color: currentLoad == null ? C.dim : loadColor(Number(currentLoad)),
               }}
               className="text-[10px] transition-colors duration-200"
             >
-              {currentLoad >= 50 ? "Higher than usual" : "Around baseline"}
+              {currentLoad == null
+                ? "Not enough data"
+                : currentLoad >= 50
+                  ? "Higher than usual"
+                  : "Around baseline"}
             </p>
             <p className="text-[9px] text-dim mt-0.5 truncate">
               {liveTelemetry
