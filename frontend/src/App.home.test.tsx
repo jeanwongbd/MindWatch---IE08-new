@@ -16,11 +16,18 @@ const EMPTY: Summary = {
   recent_7d: null,
   today_vs_usual: null,
   recent_words: [],
+  streak: { current: 0, best: 0, status: "none" },
   estimate: null,
 };
 
 // The four stages the plan names, as the server would describe them.
-const DAY_1: Summary = { ...EMPTY, count: 1, progress: { done: 1, goal: 30 }, today_checkin: { stress: 6, word: "Tired" } };
+const DAY_1: Summary = {
+  ...EMPTY,
+  count: 1,
+  progress: { done: 1, goal: 30 },
+  today_checkin: { stress: 6, word: "Tired" },
+  streak: { current: 1, best: 1, status: "building" },
+};
 const DAY_3: Summary = {
   ...EMPTY,
   count: 3,
@@ -29,6 +36,7 @@ const DAY_3: Summary = {
   usual: { value: 4.3, based_on: 3 },
   recent_7d: { value: 4.3, based_on: 3, days: 7 },
   today_vs_usual: { label: "about" },
+  streak: { current: 3, best: 3, status: "building" },
 };
 const DAY_12: Summary = {
   ...EMPTY,
@@ -43,6 +51,7 @@ const DAY_12: Summary = {
     { word: "Calm", count: 2 },
     { word: "Sad", count: 1 },
   ],
+  streak: { current: 12, best: 12, status: "building" },
 };
 const DAY_30: Summary = {
   ...DAY_12,

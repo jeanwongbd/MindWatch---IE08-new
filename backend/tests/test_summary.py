@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from backend.main import create_app
 from backend.settings import Settings
-from backend.summary import build_summary
+from backend.summary import build_summary, streaks
 from backend.tests.test_auth import CODE, signup_body
 
 # "Today" in all of these is 1 February 2026 (12:00 UTC).
@@ -203,6 +203,182 @@ class SummaryRoute(unittest.TestCase):
         app = create_app(state_path=Path(tmp.name) / "s.json", settings=Settings())
         with TestClient(app) as client:
             self.assertEqual(client.get("/me/summary", params={"utc_offset_minutes": 0}).status_code, 503)
+
+
+def days_ago(*offsets):
+    return {TODAY_DATE - timedelta(days=n) for n in offsets}
+
+
+class StreakRule(unittest.TestCase):
+    """Streaks worked out from dates alone, with no server."""
+
+    def test_streak_counts_consecutive_days(self):
+        self.assertEqual(streaks(days_ago(0, 1, 2, 3, 4), TODAY_DATE), {"current": 5, "best": 5, "status": "building"})
+
+    def test_nothing_yet(self):
+        self.assertEqual(streaks(set(), TODAY_DATE), {"current": 0, "best": 0, "status": "none"})
+
+    def test_a_gap_ends_the_streak(self):
+        self.assertEqual(streaks(days_ago(0, 1, 2, 4, 5), TODAY_DATE)["current"], 3)
+
+    def test_today_is_not_missed_until_it_has_ended(self):
+        # Checked in yesterday and before, nothing yet today: still going, waiting for today.
+        self.assertEqual(streaks(days_ago(1, 2, 3, 4), TODAY_DATE), {"current": 4, "best": 4, "status": "waiting"})
+
+    def test_two_days_without_a_check_in_ends_it(self):
+        self.assertEqual(streaks(days_ago(2, 3, 4), TODAY_DATE), {"current": 0, "best": 3, "status": "none"})
+
+    def test_missed_day_resets_streak(self):
+        # Checked in today, missed yesterday, and had a run of five before that.
+        self.assertEqual(streaks(days_ago(0, 2, 3, 4, 5, 6), TODAY_DATE), {"current": 1, "best": 5, "status": "building"})
+
+    def test_best_streak_kept(self):
+        long_ago = days_ago(40, 41, 42, 43, 44, 45)  # a run of six, long ago
+        self.assertEqual(streaks(long_ago | days_ago(0, 1), TODAY_DATE), {"current": 2, "best": 6, "status": "building"})
+        self.assertEqual(streaks(long_ago, TODAY_DATE), {"current": 0, "best": 6, "status": "none"})
+
+    def test_the_best_is_never_lower_than_the_current(self):
+        for offsets in [(0,), (1,), (0, 1, 5), (3, 4), (0, 1, 2, 3, 10, 11), tuple(range(0, 50, 2)), tuple(range(60))]:
+            result = streaks(days_ago(*offsets), TODAY_DATE)
+            self.assertGreaterEqual(result["best"], result["current"], offsets)
+
+    def test_dates_after_today_do_not_extend_the_current_streak(self):
+        # A time-zone change can leave a check-in dated tomorrow. It is not part of this streak.
+        result = streaks({TODAY_DATE, TODAY_DATE + timedelta(days=1)}, TODAY_DATE)
+        self.assertEqual((result["current"], result["status"]), (1, "building"))
+
+    def test_runs_cross_months_years_and_leap_days(self):
+        new_year = date(2026, 1, 5)
+        run = {new_year - timedelta(days=n) for n in range(9)}  # 28 Dec to 5 Jan
+        self.assertEqual(streaks(run, new_year)["current"], 9)
+        leap = {date(2024, 2, 28), date(2024, 2, 29), date(2024, 3, 1)}
+        self.assertEqual(streaks(leap, date(2024, 3, 1))["current"], 3)
+
+    def test_the_score_plays_no_part(self):
+        # Rows with any stress score, high or low, count the same: only the dates matter.
+        for stress in (0, 5, 10):
+            rows = [row(i, stress) for i in range(4)]
+            self.assertEqual(build_summary(rows, TODAY_DATE)["streak"]["current"], 4)
+
+
+class StreakRoute(unittest.TestCase):
+    """Streaks through the real routes, with the clock moved from day to day."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        db = Path(self.tmp.name) / "app.db"
+        settings = Settings(database_url=f"sqlite:///{db.as_posix()}", invite_codes=(CODE,))
+        self.app = create_app(state_path=Path(self.tmp.name) / "s.json", settings=settings)
+        self.now = NOON
+        self.app.state.clock = lambda: self.now
+        context = TestClient(self.app)
+        self.client = context.__enter__()
+        self.addCleanup(context.__exit__, None, None, None)
+        self.alice = self.new_user("alice@example.com")
+        self.bob = self.new_user("bob@example.com")
+
+    def new_user(self, email):
+        response = self.client.post("/auth/signup", json=signup_body(email=email))
+        self.assertEqual(response.status_code, 201)
+        return {"Authorization": f"Bearer {response.json()['token']}"}
+
+    def day(self, n):
+        """Noon, n days after the start. Day 0 is 1 February 2026."""
+        return NOON + timedelta(days=n)
+
+    def check_in(self, who, on_day, for_day=None, stress=5):
+        """Check in while the clock reads day `on_day`, for that day or (late) for an earlier one."""
+        self.now = self.day(on_day)
+        day = self.day(on_day if for_day is None else for_day).date().isoformat()
+        response = self.client.put(
+            f"/me/checkins/{day}", json={"stress": stress, "word": None, "utc_offset_minutes": 0}, headers=who
+        )
+        self.assertEqual(response.status_code, 201, day)
+
+    def summary(self, who, on_day, offset=0):
+        self.now = self.day(on_day)
+        response = self.client.get("/me/summary", params={"utc_offset_minutes": offset}, headers=who)
+        self.assertEqual(response.status_code, 200)
+        return response.json()
+
+    def test_streak_counts_consecutive_days(self):
+        for d in range(5):
+            self.check_in(self.alice, d)
+        s = self.summary(self.alice, 4)
+        self.assertEqual(s["streak"], {"current": 5, "best": 5, "status": "building"})
+
+    def test_late_checkin_keeps_streak(self):
+        self.check_in(self.alice, 0)
+        self.check_in(self.alice, 1)
+        # Day 2 is missed. On day 3 the person checks in for yesterday (late), then for today.
+        self.check_in(self.alice, 3, for_day=2)
+        self.check_in(self.alice, 3)
+        self.assertEqual(self.summary(self.alice, 3)["streak"], {"current": 4, "best": 4, "status": "building"})
+
+    def test_without_the_late_checkin_the_streak_would_have_ended(self):
+        self.check_in(self.alice, 0)
+        self.check_in(self.alice, 1)
+        self.check_in(self.alice, 3)
+        self.assertEqual(self.summary(self.alice, 3)["streak"], {"current": 1, "best": 2, "status": "building"})
+
+    def test_missed_day_resets_streak(self):
+        for d in range(5):
+            self.check_in(self.alice, d)
+        self.check_in(self.alice, 6)  # day 5 was missed
+        self.assertEqual(self.summary(self.alice, 6)["streak"], {"current": 1, "best": 5, "status": "building"})
+
+    def test_a_missed_day_with_nothing_yet_today_shows_no_streak_not_a_penalty(self):
+        for d in range(3):
+            self.check_in(self.alice, d)
+        s = self.summary(self.alice, 4)  # day 3 was missed, and day 4 has no check-in yet
+        self.assertEqual(s["streak"], {"current": 0, "best": 3, "status": "none"})
+        self.assertEqual(s["count"], 3)
+
+    def test_missed_day_keeps_30_count(self):
+        for d in range(12):
+            self.check_in(self.alice, d, stress=3)
+        before = self.summary(self.alice, 11)
+        self.assertEqual((before["progress"], before["streak"]["current"]), ({"done": 12, "goal": 30}, 12))
+        after = self.summary(self.alice, 15)  # three days with no check-in
+        self.assertEqual(after["streak"]["status"], "none")
+        self.assertEqual(after["progress"], {"done": 12, "goal": 30})
+        self.assertEqual(after["count"], 12)
+        self.assertEqual(after["usual"], before["usual"])  # the usual level is untouched too
+
+    def test_best_streak_kept(self):
+        for d in range(6):
+            self.check_in(self.alice, d)
+        for d in (8, 9):  # day 6 and 7 missed
+            self.check_in(self.alice, d)
+        self.assertEqual(self.summary(self.alice, 9)["streak"], {"current": 2, "best": 6, "status": "building"})
+
+    def test_a_streak_that_continues_is_waiting_for_today(self):
+        for d in range(3):
+            self.check_in(self.alice, d)
+        self.assertEqual(self.summary(self.alice, 3)["streak"], {"current": 3, "best": 3, "status": "waiting"})
+        self.check_in(self.alice, 3)
+        self.assertEqual(self.summary(self.alice, 3)["streak"], {"current": 4, "best": 4, "status": "building"})
+
+    def test_each_person_has_their_own_streak(self):
+        for d in range(5):
+            self.check_in(self.alice, d)
+        self.check_in(self.bob, 4)
+        self.assertEqual(self.summary(self.alice, 4)["streak"]["current"], 5)
+        self.assertEqual(self.summary(self.bob, 4)["streak"], {"current": 1, "best": 1, "status": "building"})
+
+    def test_the_phones_time_zone_decides_which_day_it_is(self):
+        self.check_in(self.alice, 0)  # a check-in for 1 February
+        self.now = datetime(2026, 2, 1, 20, 0, tzinfo=timezone.utc)  # 2 February already in Singapore
+        utc = self.client.get("/me/summary", params={"utc_offset_minutes": 0}, headers=self.alice).json()
+        singapore = self.client.get("/me/summary", params={"utc_offset_minutes": 480}, headers=self.alice).json()
+        self.assertEqual(utc["streak"], {"current": 1, "best": 1, "status": "building"})
+        self.assertEqual(singapore["streak"], {"current": 1, "best": 1, "status": "waiting"})
+
+    def test_the_stress_score_does_not_change_the_streak(self):
+        for d, stress in enumerate((0, 10, 5, 10)):
+            self.check_in(self.alice, d, stress=stress)
+        self.assertEqual(self.summary(self.alice, 3)["streak"]["current"], 4)
 
 
 if __name__ == "__main__":

@@ -11,6 +11,8 @@ export interface Summary {
   recent_7d: { value: number; based_on: number; days: number } | null;
   today_vs_usual: { label: "higher" | "about" | "lower" } | null;
   recent_words: { word: string; count: number }[];
+  /** Consecutive days with a check-in. "waiting" means today has no check-in yet but yesterday does. */
+  streak: { current: number; best: number; status: "building" | "waiting" | "none" };
   /** Always null until a personal model has been trained and tested. */
   estimate: null;
 }

@@ -24,6 +24,23 @@ function stageMessage(count: number, goal: number): string {
   return "";
 }
 
+const days = (n: number) => `${n} day${n === 1 ? "" : "s"}`;
+
+/** The streak, in kind words. A missed day is never framed as a loss: the count of check-ins stays. */
+function streakText(summary: Summary): { main: string; best: string | null } | null {
+  const { current, best, status } = summary.streak;
+  if (status === "building") return { main: `${current}-day streak`, best: `Best: ${days(best)}` };
+  if (status === "waiting") {
+    return { main: `Your ${current}-day streak continues if you check in today.`, best: `Best: ${days(best)}` };
+  }
+  if (summary.count === 0) return null;
+  const n = summary.count;
+  return {
+    main: `Start again today. Your ${n} check-in${n === 1 ? "" : "s"} still count${n === 1 ? "s" : ""}.`,
+    best: best >= 2 ? `Your best streak so far: ${days(best)}.` : null,
+  };
+}
+
 const secondaryButtonClass =
   "w-full py-3.5 border border-border text-ink rounded-2xl hover:opacity-90 active:opacity-80 transition-opacity";
 
@@ -102,6 +119,13 @@ export default function HomeScreen({ user, onCheckIn, onTrends, onSignOut }: Pro
             )}
           </div>
 
+          {streakText(summary) && (
+            <div role="group" aria-label="Your streak" className="rounded-2xl border border-border p-4 text-center space-y-1">
+              <p className="text-sm text-ink">{streakText(summary)!.main}</p>
+              {streakText(summary)!.best && <p className="text-xs text-muted">{streakText(summary)!.best}</p>}
+            </div>
+          )}
+
           {stageMessage(summary.count, summary.progress.goal) && (
             <p className="text-xs text-muted text-center">{stageMessage(summary.count, summary.progress.goal)}</p>
           )}
@@ -110,12 +134,12 @@ export default function HomeScreen({ user, onCheckIn, onTrends, onSignOut }: Pro
             <div className="rounded-2xl border border-border p-4 space-y-1.5 text-sm text-ink">
               <p>
                 Your usual: {summary.usual.value} out of 10
-                <span className="text-xs text-muted whitespace-nowrap"> (from {summary.usual.based_on} check-ins)</span>
+                <span className="block text-xs text-muted">(from {summary.usual.based_on} check-ins)</span>
               </p>
               {summary.recent_7d ? (
                 <p>
                   Last 7 days: {summary.recent_7d.value} out of 10
-                  <span className="text-xs text-muted whitespace-nowrap"> (from {summary.recent_7d.based_on} check-ins)</span>
+                  <span className="block text-xs text-muted">(from {summary.recent_7d.based_on} check-ins)</span>
                 </p>
               ) : (
                 <p className="text-xs text-muted">Last 7 days: not enough check-ins this week yet (it needs 3).</p>

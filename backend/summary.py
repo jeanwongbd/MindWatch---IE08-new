@@ -7,7 +7,7 @@ personal model has been trained and tested, in a later task.
 from collections import Counter
 from datetime import date, timedelta
 from statistics import mean
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import select
@@ -28,6 +28,32 @@ WORDS_SHOWN = 5
 
 def _round(value: float) -> float:
     return round(value, 1)
+
+
+def streaks(days: Set[date], today: date) -> Dict:
+    """Consecutive days with a check-in, whatever the stress score.
+
+    The current streak runs back from today. If today has no check-in yet but yesterday does, it is
+    still going (status "waiting"): a day is not missed until it has ended. A late check-in for
+    yesterday counts, because this works from the check-in dates. The best streak is the longest run
+    ever, so a missed day never lowers it. Dates after today (from a time-zone change) are ignored
+    for the current streak.
+    """
+    one_day = timedelta(days=1)
+    cursor = today if today in days else (today - one_day if (today - one_day) in days else None)
+    current = 0
+    while cursor is not None and cursor in days:
+        current += 1
+        cursor -= one_day
+    status = "building" if today in days else ("waiting" if current > 0 else "none")
+
+    best = run = 0
+    previous: Optional[date] = None
+    for day in sorted(days):
+        run = run + 1 if previous is not None and day - previous == one_day else 1
+        best = max(best, run)
+        previous = day
+    return {"current": current, "best": best, "status": status}
 
 
 def build_summary(rows: List[Checkin], today: date) -> Dict:
@@ -69,6 +95,7 @@ def build_summary(rows: List[Checkin], today: date) -> Dict:
         "recent_7d": recent_7d,
         "today_vs_usual": today_vs_usual,
         "recent_words": recent_words,
+        "streak": streaks({r.date for r in rows}, today),
         "estimate": None,
     }
 
