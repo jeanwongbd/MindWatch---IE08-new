@@ -19,6 +19,7 @@ from requests_oauthlib import OAuth2Session
 import numpy as np
 
 from backend.auth import router as auth_router
+from backend.checkins import router as checkins_router
 from backend.db import make_engine, run_migrations
 from backend.settings import get_settings
 
@@ -449,6 +450,7 @@ def create_app(model_path=None, state_path=None, settings=None):
     app.state.clock = lambda: datetime.now(timezone.utc)
     app.state.invite_codes = settings.invite_codes
     app.include_router(auth_router)
+    app.include_router(checkins_router)
 
     app.add_middleware(
         CORSMiddleware,

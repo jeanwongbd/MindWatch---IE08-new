@@ -6,6 +6,7 @@ import CalibrationScreen from "./screens/CalibrationScreen";
 import ConsentScreen from "./screens/ConsentScreen";
 import CreateAccountScreen from "./screens/CreateAccountScreen";
 import HomeScreen from "./screens/HomeScreen";
+import DailyCheckInScreen from "./screens/DailyCheckInScreen";
 import AuthFrame, { friendlyError, linkButtonClass, primaryButtonClass } from "./screens/AuthFrame";
 import { ACCOUNTS_ENABLED } from "./config";
 import { api, ApiError, type AuthSession, type AuthUser } from "./api";
@@ -14,7 +15,7 @@ import { clearAnswers, loadAnswers, saveAnswers } from "./onboarding";
 import { clearToken, getToken, onSessionExpired, setToken } from "./session";
 import { useServerWaking } from "./useServerWaking";
 
-type View = "welcome" | "signin" | "calibration" | "consent" | "signup" | "demo" | "home";
+type View = "welcome" | "signin" | "calibration" | "consent" | "signup" | "demo" | "home" | "checkin";
 
 const EXPIRED = "Your session expired. Please sign in again.";
 
@@ -185,7 +186,9 @@ export default function App() {
         onSignIn={() => setView("signin")}
       />
     );
-  if (view === "home" && user) return <HomeScreen user={user} onSignOut={signOut} />;
+  if (view === "home" && user)
+    return <HomeScreen user={user} onCheckIn={() => setView("checkin")} onSignOut={signOut} />;
+  if (view === "checkin" && user) return <DailyCheckInScreen onBack={() => setView("home")} />;
 
   return (
     <WelcomeScreen

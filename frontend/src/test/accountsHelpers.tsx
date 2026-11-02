@@ -42,7 +42,7 @@ export function callsTo(spy: ReturnType<typeof stubBackend>, key: string) {
 }
 
 export async function loadApp(accountsOn = true) {
-  if (accountsOn) vi.stubEnv("VITE_ACCOUNTS_ENABLED", "true");
+  vi.stubEnv("VITE_ACCOUNTS_ENABLED", accountsOn ? "true" : "false");
   const { default: App } = await import("../App");
   return render(<App />);
 }

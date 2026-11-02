@@ -1,7 +1,20 @@
 """Database tables. Keep migrations in step: every change here needs a new revision."""
+import datetime as dt
 from datetime import datetime
+from typing import Optional
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    CheckConstraint,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    SmallInteger,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -61,3 +74,24 @@ class CalibrationAnswers(Base):
     questions_version: Mapped[str] = mapped_column(String(16), nullable=False)
     answers: Mapped[dict] = mapped_column(JSON, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class Checkin(Base):
+    """One check-in per person per day. The day is the phone's local date."""
+
+    __tablename__ = "checkins"
+    __table_args__ = (
+        UniqueConstraint("user_id", "date", name="uq_checkins_user_date"),
+        CheckConstraint("stress >= 0 AND stress <= 10", name="ck_checkins_stress_range"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    date: Mapped[dt.date] = mapped_column(Date, nullable=False)
+    stress: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    # One of the fixed words in checkin_words.json, or nothing. Never free text.
+    word: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
