@@ -52,6 +52,7 @@ live_fitbit_cache = {
     "sleep_minutes": 420,
     "body_load": None,
     "status": "disconnected",
+    "oauth_state": None,
 }
 
 
@@ -423,7 +424,7 @@ def create_app(model_path=None, state_path=None):
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
-        allow_credentials=True,
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -446,16 +447,33 @@ def create_app(model_path=None, state_path=None):
         """Initiates the Google Fitness OAuth 2.0 handshake."""
         require_google_secret()
         oauth = OAuth2Session(GOOGLE_CLIENT_ID, redirect_uri=REDIRECT_URI, scope=SCOPES)
-        authorization_url, _ = oauth.authorization_url(
-            AUTH_URL, 
-            access_type="offline", 
+        authorization_url, state = oauth.authorization_url(
+            AUTH_URL,
+            access_type="offline",
             prompt="consent"
         )
+        live_fitbit_cache["oauth_state"] = state
         return RedirectResponse(authorization_url)
 
     @app.get("/api/fitbit/callback")
-    def fitbit_callback(code: str):
+    def fitbit_callback(
+        code: Optional[str] = None,
+        state: Optional[str] = None,
+        error: Optional[str] = None,
+    ):
         """Swaps code for access token upon user approval."""
+        expected_state = live_fitbit_cache.get("oauth_state")
+        live_fitbit_cache["oauth_state"] = None
+
+        if error:
+            return RedirectResponse(f"{FRONTEND_URL}/?sync_error=denied")
+
+        if not code or not state or state != expected_state:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid sign-in response. Start again from the app.",
+            )
+
         require_google_secret()
         payload = {
             "client_id": GOOGLE_CLIENT_ID,
@@ -464,7 +482,11 @@ def create_app(model_path=None, state_path=None):
             "grant_type": "authorization_code",
             "redirect_uri": REDIRECT_URI,
         }
-        res = requests.post(TOKEN_URL, data=payload)
+        try:
+            res = requests.post(TOKEN_URL, data=payload, timeout=10)
+        except requests.RequestException as e:
+            LOGGER.error("Could not reach Google token endpoint: %s", type(e).__name__)
+            raise HTTPException(status_code=502, detail="Could not reach Google.")
         if res.status_code != 200:
             raise HTTPException(status_code=400, detail=f"Token exchange failed: {res.text}")
 
