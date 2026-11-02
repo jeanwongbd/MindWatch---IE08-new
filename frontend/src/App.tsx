@@ -6,6 +6,10 @@ import CalibrationScreen from "./screens/CalibrationScreen";
 import ConsentScreen from "./screens/ConsentScreen";
 import CreateAccountScreen from "./screens/CreateAccountScreen";
 import HomeScreen from "./screens/HomeScreen";
+import DailyCheckInScreen from "./screens/DailyCheckInScreen";
+import PersonalTrendsScreen from "./screens/PersonalTrendsScreen";
+import RemindersScreen from "./screens/RemindersScreen";
+import { reminders } from "./remindersService";
 import AuthFrame, { friendlyError, linkButtonClass, primaryButtonClass } from "./screens/AuthFrame";
 import { ACCOUNTS_ENABLED } from "./config";
 import { api, ApiError, type AuthSession, type AuthUser } from "./api";
@@ -14,7 +18,7 @@ import { clearAnswers, loadAnswers, saveAnswers } from "./onboarding";
 import { clearToken, getToken, onSessionExpired, setToken } from "./session";
 import { useServerWaking } from "./useServerWaking";
 
-type View = "welcome" | "signin" | "calibration" | "consent" | "signup" | "demo" | "home";
+type View = "welcome" | "signin" | "calibration" | "consent" | "signup" | "demo" | "home" | "checkin" | "trends" | "reminders";
 
 const EXPIRED = "Your session expired. Please sign in again.";
 
@@ -35,6 +39,7 @@ export default function App() {
   useEffect(
     () =>
       onSessionExpired(() => {
+        reminders.cancelAll().catch(() => {});
         setUser(null);
         setNotice(EXPIRED);
         setView("signin");
@@ -99,6 +104,8 @@ export default function App() {
     } catch {
       // Even if the server cannot be reached, this device forgets the session.
     }
+    // Nobody is signed in any more, so no reminder should fire. Their choices are kept for next time.
+    await reminders.cancelAll().catch(() => {});
     clearToken();
     setUser(null);
     setNotice("");
@@ -185,7 +192,19 @@ export default function App() {
         onSignIn={() => setView("signin")}
       />
     );
-  if (view === "home" && user) return <HomeScreen user={user} onSignOut={signOut} />;
+  if (view === "home" && user)
+    return (
+      <HomeScreen
+        user={user}
+        onCheckIn={() => setView("checkin")}
+        onTrends={() => setView("trends")}
+        onReminders={() => setView("reminders")}
+        onSignOut={signOut}
+      />
+    );
+  if (view === "checkin" && user) return <DailyCheckInScreen userId={user.id} onBack={() => setView("home")} />;
+  if (view === "reminders" && user) return <RemindersScreen userId={user.id} onBack={() => setView("home")} />;
+  if (view === "trends" && user) return <PersonalTrendsScreen onBack={() => setView("home")} />;
 
   return (
     <WelcomeScreen
