@@ -49,6 +49,13 @@ export default function TodayScreen({
   } | null>(null);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has("sync_error")) return;
+    setSyncMessage("Google sign-in was cancelled.");
+    window.history.replaceState({}, "", window.location.pathname);
+  }, []);
+
   // Synchronize incoming props
   useEffect(() => {
     if (initialData) {
