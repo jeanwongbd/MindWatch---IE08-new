@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
 import type { AuthUser } from "../api";
 import { fetchSummary, type Summary } from "../summary";
+import { reminders } from "../remindersService";
+import { ReminderOffer, WebReminderBanner } from "./ReminderPrompts";
 import AuthFrame, { friendlyError, linkButtonClass, primaryButtonClass } from "./AuthFrame";
 
 interface Props {
   user: AuthUser;
   onCheckIn: () => void;
   onTrends: () => void;
+  onReminders: () => void;
   onSignOut: () => void;
 }
 
@@ -45,7 +48,7 @@ const secondaryButtonClass =
   "w-full py-3.5 border border-border text-ink rounded-2xl hover:opacity-90 active:opacity-80 transition-opacity";
 
 /** The signed-in Home. Plain descriptions of the person's own check-ins, never a cause or a prediction. */
-export default function HomeScreen({ user, onCheckIn, onTrends, onSignOut }: Props) {
+export default function HomeScreen({ user, onCheckIn, onTrends, onReminders, onSignOut }: Props) {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
@@ -55,7 +58,11 @@ export default function HomeScreen({ user, onCheckIn, onTrends, onSignOut }: Pro
     setError("");
     fetchSummary()
       .then((s) => {
-        if (live) setSummary(s);
+        if (!live) return;
+        setSummary(s);
+        // Keep the phone's reminders in step: today's is skipped once today's check-in is done.
+        reminders.setTodayDone(s.today_checkin !== null);
+        reminders.sync(user.id).catch(() => {});
       })
       .catch((e) => {
         if (live) setError(friendlyError(e));
@@ -126,6 +133,9 @@ export default function HomeScreen({ user, onCheckIn, onTrends, onSignOut }: Pro
             </div>
           )}
 
+          <WebReminderBanner userId={user.id} todayDone={summary.today_checkin !== null} />
+          {summary.count >= 1 && <ReminderOffer userId={user.id} />}
+
           {stageMessage(summary.count, summary.progress.goal) && (
             <p className="text-xs text-muted text-center">{stageMessage(summary.count, summary.progress.goal)}</p>
           )}
@@ -171,6 +181,9 @@ export default function HomeScreen({ user, onCheckIn, onTrends, onSignOut }: Pro
       </button>
       <button onClick={onTrends} className={secondaryButtonClass} style={{ fontWeight: 500 }}>
         See your trends
+      </button>
+      <button onClick={onReminders} className={secondaryButtonClass} style={{ fontWeight: 500 }}>
+        Reminders
       </button>
       <button onClick={onSignOut} className={secondaryButtonClass} style={{ fontWeight: 500 }}>
         Sign out

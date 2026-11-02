@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ApiError, api } from "../api";
 import { WORDS, dayBefore, localDate, utcOffsetMinutes } from "../checkinWords";
+import { reminders } from "../remindersService";
 import AuthFrame, { friendlyError, linkButtonClass, primaryButtonClass } from "./AuthFrame";
 
 interface SavedCheckin {
@@ -19,11 +20,12 @@ const chip = (selected: boolean) =>
   }`;
 
 interface Props {
+  userId: string;
   onBack: () => void;
 }
 
 /** The signed-in daily check-in: a stress number and an optional word. Separate from the demo's. */
-export default function DailyCheckInScreen({ onBack }: Props) {
+export default function DailyCheckInScreen({ userId, onBack }: Props) {
   const [which, setWhich] = useState<Which>("today");
   const [stress, setStress] = useState<number | null>(null);
   const [word, setWord] = useState<string | null>(null);
@@ -69,6 +71,11 @@ export default function DailyCheckInScreen({ onBack }: Props) {
         body: JSON.stringify({ stress, word, utc_offset_minutes: utcOffsetMinutes() }),
       });
       setMessage("Saved. You can change it until the day ends.");
+      if (which === "today") {
+        // Today is done, so today's reminder is not needed.
+        reminders.setTodayDone(true);
+        reminders.sync(userId).catch(() => {});
+      }
     } catch (e) {
       setError(friendlyError(e));
     } finally {

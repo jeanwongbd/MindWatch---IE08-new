@@ -6,6 +6,12 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     androidScheme: 'http'
+  },
+  plugins: {
+    LocalNotifications: {
+      smallIcon: 'ic_stat_mindwatch',
+      iconColor: '#1B1B1A'
+    }
   }
 };
 
