@@ -81,19 +81,10 @@ export default function CheckInScreen({ data, onDone, onReturn }: Props) {
     };
 
     try {
-      if (typeof api === "function") {
-        await api("/checkin", {
-          method: "POST",
-          body: JSON.stringify(payload),
-        });
-      } else {
-        const response = await fetch("http://localhost:8000/checkins", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (!response.ok) throw new Error(`Server returned ${response.status}`);
-      }
+      await api("/checkin", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
       onDone();
     } catch (err: any) {
       console.error("Failed to submit check-in:", err);

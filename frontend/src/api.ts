@@ -61,20 +61,77 @@ export interface DemoConfig {
   limitation: string;
 }
 
+/** Error from api(). `status` is the HTTP status, and is undefined when no response came back. */
+export class ApiError extends Error {
+  status?: number;
+  constructor(message: string, status?: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+// A sleeping Render server can take about a minute to wake up.
+const TIMEOUT_MS = 70000;
+// After this long, screens are told the server is probably waking up.
+const SLOW_AFTER_MS = 4000;
+
+let slowRequests = 0;
+const slowListeners = new Set<() => void>();
+
+/** True while any request has been waiting longer than SLOW_AFTER_MS. */
+export function isServerSlow(): boolean {
+  return slowRequests > 0;
+}
+
+export function subscribeServerSlow(listener: () => void): () => void {
+  slowListeners.add(listener);
+  return () => {
+    slowListeners.delete(listener);
+  };
+}
+
+function changeSlowRequests(delta: number) {
+  slowRequests += delta;
+  slowListeners.forEach((listener) => listener());
+}
+
+async function send(path: string, options?: RequestInit): Promise<Response> {
+  return fetch(API_BASE_URL + path, {
+    ...options,
+    signal: options?.signal ?? AbortSignal.timeout(TIMEOUT_MS),
+    headers: { "Content-Type": "application/json", ...options?.headers },
+  });
+}
+
 export async function api<T>(path: string, options?: RequestInit): Promise<T> {
+  let slow = false;
+  const timer = setTimeout(() => {
+    slow = true;
+    changeSlowRequests(1);
+  }, SLOW_AFTER_MS);
   try {
-    const response = await fetch(API_BASE_URL + path, {
-      ...options,
-      signal: options?.signal ?? AbortSignal.timeout(10000),
-      headers: { "Content-Type": "application/json", ...options?.headers },
-    });
-    if (!response.ok) throw new Error(`Request failed (${response.status}). Please retry.`);
+    let response: Response;
+    try {
+      response = await send(path, options);
+    } catch (error) {
+      // Only reads are retried. A POST is never re-sent automatically, since it may have been saved.
+      const isRead = (options?.method ?? "GET").toUpperCase() === "GET";
+      if (!(isRead && error instanceof TypeError)) throw error;
+      response = await send(path, options);
+    }
+    if (!response.ok) {
+      throw new ApiError(`Request failed (${response.status}). Please retry.`, response.status);
+    }
     return (await response.json()) as T;
   } catch (error) {
     if (error instanceof TypeError || (error instanceof DOMException && error.name === "TimeoutError")) {
-      throw new Error("Cannot connect to MindWatch. Start the backend and try again.");
+      throw new ApiError("Cannot connect to MindWatch. Start the backend and try again.");
     }
     throw error;
+  } finally {
+    clearTimeout(timer);
+    if (slow) changeSlowRequests(-1);
   }
 }
 

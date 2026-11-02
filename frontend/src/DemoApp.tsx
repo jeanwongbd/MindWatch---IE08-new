@@ -5,6 +5,7 @@ import WhyScreen from "./screens/WhyScreen";
 import TrendsScreen from "./screens/TrendsScreen";
 import { C } from "./theme";
 import { DEV_MODE } from "./config";
+import { useServerWaking } from "./useServerWaking";
 import { api, type DemoConfig, type DemoRecord, type Mode } from "./api";
 
 const SCREENS = ["Today", "Check-in", "Measurements used", "Trends"] as const;
@@ -23,6 +24,7 @@ export default function DemoApp() {
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
+  const waking = useServerWaking();
 
   useEffect(() => {
     let live = true;
@@ -248,7 +250,7 @@ export default function DemoApp() {
             </div>
           ) : loading || !data ? (
             <div className="flex items-center justify-center h-48 text-muted text-xs font-mono">
-              Loading biometrics…
+              {waking ? "Waking up the server… this can take about a minute." : "Loading biometrics…"}
             </div>
           ) : (
             content[active]

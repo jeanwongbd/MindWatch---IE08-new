@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { SYNC_ENABLED } from "../config";
-import { API_BASE_URL, type DemoRecord, number } from "../api";
+import { API_BASE_URL, ApiError, api, type DemoRecord, number } from "../api";
 import { C } from "../theme";
 
 interface Props {
@@ -69,14 +69,8 @@ export default function TodayScreen({
   useEffect(() => {
     if (initialData) return;
 
-    fetch(`${API_BASE_URL}/today`)
-      .then((res) => {
-        if (!res.ok)
-          return fetch(`${API_BASE_URL}/profiles/p01/today`).then((r) =>
-            r.json(),
-          );
-        return res.json();
-      })
+    api<any>("/today")
+      .catch(() => api<any>("/profiles/p01/today"))
       .then((json) => {
         setData(json);
         setLoading(false);
@@ -92,15 +86,8 @@ export default function TodayScreen({
     try {
       setIsSyncing(true);
       setSyncMessage(null);
-      const res = await fetch(`${API_BASE_URL}/api/fitbit/sync-live`);
-
-      if (res.status === 401) {
-        window.location.href = `${API_BASE_URL}/api/fitbit/login`;
-        return;
-      }
-
-      const json = await res.json().catch(() => null);
-      if (res.ok && json?.status === "success") {
+      const json = await api<any>("/api/fitbit/sync-live");
+      if (json?.status === "success") {
         setLiveTelemetry({
           heartRate: json.latest_heart_rate,
           bodyLoad: json.body_load,
@@ -110,15 +97,19 @@ export default function TodayScreen({
       }
 
       setLiveTelemetry(null);
-      setSyncMessage(
-        res.ok
-          ? "No recent heart rate data from your watch."
-          : "Couldn't reach Google. Please try again.",
-      );
+      setSyncMessage("No recent heart rate data from your watch.");
     } catch (err: any) {
+      if (err instanceof ApiError && err.status === 401) {
+        window.location.href = `${API_BASE_URL}/api/fitbit/login`;
+        return;
+      }
       console.error("Live sync failed:", err);
       setLiveTelemetry(null);
-      setSyncMessage("Couldn't sync right now. Please try again.");
+      setSyncMessage(
+        err instanceof ApiError && err.status
+          ? "Couldn't reach Google. Please try again."
+          : "Couldn't sync right now. Please try again.",
+      );
     } finally {
       setIsSyncing(false);
     }
