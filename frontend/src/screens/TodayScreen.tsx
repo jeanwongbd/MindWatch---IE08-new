@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { SYNC_ENABLED } from "../config";
 import { API_BASE_URL, type DemoRecord, number } from "../api";
 import { C } from "../theme";
 
@@ -384,7 +385,7 @@ export default function TodayScreen({
       </div>
 
       {/* Live Wearable Sync Trigger */}
-      {data.mode !== "synthetic_scenario" && (
+      {SYNC_ENABLED && data.mode !== "synthetic_scenario" && (
       <>
       <button
         onClick={handleLiveSync}
