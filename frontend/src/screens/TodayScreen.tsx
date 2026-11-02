@@ -43,6 +43,7 @@ export default function TodayScreen({
     bodyLoad: number;
     syncedAt: string;
   } | null>(null);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   // Synchronize incoming props
   useEffect(() => {
@@ -78,6 +79,7 @@ export default function TodayScreen({
   const handleLiveSync = async () => {
     try {
       setIsSyncing(true);
+      setSyncMessage(null);
       const res = await fetch(`${API_BASE_URL}/api/fitbit/sync-live`);
 
       if (res.status === 401) {
@@ -85,16 +87,26 @@ export default function TodayScreen({
         return;
       }
 
-      const json = await res.json();
-      if (json.status === "success") {
+      const json = await res.json().catch(() => null);
+      if (res.ok && json?.status === "success") {
         setLiveTelemetry({
           heartRate: json.latest_heart_rate,
           bodyLoad: json.body_load,
           syncedAt: json.synced_at,
         });
+        return;
       }
+
+      setLiveTelemetry(null);
+      setSyncMessage(
+        res.ok
+          ? "No recent heart rate data from your watch."
+          : "Couldn't reach Google. Please try again.",
+      );
     } catch (err: any) {
       console.error("Live sync failed:", err);
+      setLiveTelemetry(null);
+      setSyncMessage("Couldn't sync right now. Please try again.");
     } finally {
       setIsSyncing(false);
     }
@@ -374,6 +386,11 @@ export default function TodayScreen({
           <span>⚡ Sync Live Watch</span>
         )}
       </button>
+      {syncMessage && (
+        <p role="status" className="text-center text-[11px] font-mono text-muted">
+          {syncMessage}
+        </p>
+      )}
 
       {/* CTA Button */}
       {data.mode === "synthetic_scenario" ? (

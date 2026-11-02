@@ -48,9 +48,9 @@ SCOPES = [
 live_fitbit_cache = {
     "access_token": None,
     "last_sync": None,
-    "latest_hr": 74.0,
+    "latest_hr": None,
     "sleep_minutes": 420,
-    "body_load": 22.0,
+    "body_load": None,
     "status": "disconnected",
 }
 
@@ -479,8 +479,7 @@ def create_app(model_path=None, state_path=None):
 
     @app.get("/api/fitbit/sync-live")
     def fitbit_sync_live():
-        """Pulls recent HR points from Google Fitness, with dynamic fallback matching live wrist pulse."""
-        import random
+        """Pulls recent HR points from Google Fitness. Never substitutes made-up readings."""
 
         token = live_fitbit_cache.get("access_token")
         if not token:
@@ -501,7 +500,6 @@ def create_app(model_path=None, state_path=None):
             "endTimeNanos": now_ns,
         }
 
-        latest_hr = None
         try:
             hr_res = requests.post(
                 "https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate",
@@ -509,27 +507,51 @@ def create_app(model_path=None, state_path=None):
                 json=hr_body,
                 timeout=10,
             )
-            if hr_res.status_code == 200:
-                buckets = hr_res.json().get("bucket", [])
-                for bucket in reversed(buckets):
-                    for ds in bucket.get("dataset", []):
-                        for point in ds.get("point", []):
-                            values = point.get("value", [])
-                            if values:
-                                val = values[0].get("fpVal") or values[0].get("intVal")
-                                if val is not None:
-                                    latest_hr = round(float(val), 1)
-                                    break
-                        if latest_hr is not None:
-                            break
-                    if latest_hr is not None:
-                        break
-        except Exception as e:
+        except requests.RequestException as e:
             LOGGER.error("Could not fetch live heart rate: %s", e)
+            raise HTTPException(status_code=502, detail="Could not reach Google Fitness.")
 
-        # Dynamic fallback matching real-time active wrist range (80 - 83 bpm)
+        if hr_res.status_code == 401:
+            live_fitbit_cache["access_token"] = None
+            live_fitbit_cache["status"] = "disconnected"
+            raise HTTPException(
+                status_code=401,
+                detail="Google login expired. Visit /api/fitbit/login to reconnect.",
+            )
+
+        if hr_res.status_code != 200:
+            LOGGER.error("Google Fitness returned status %s", hr_res.status_code)
+            raise HTTPException(status_code=502, detail="Google Fitness request failed.")
+
+        try:
+            buckets = hr_res.json().get("bucket", [])
+        except ValueError:
+            LOGGER.error("Google Fitness returned an unreadable response")
+            raise HTTPException(status_code=502, detail="Google Fitness request failed.")
+
+        latest_hr = None
+        for bucket in reversed(buckets):
+            for ds in bucket.get("dataset", []):
+                for point in ds.get("point", []):
+                    values = point.get("value", [])
+                    if values:
+                        val = values[0].get("fpVal") or values[0].get("intVal")
+                        if val is not None:
+                            latest_hr = round(float(val), 1)
+                            break
+                if latest_hr is not None:
+                    break
+            if latest_hr is not None:
+                break
+
         if latest_hr is None:
-            latest_hr = round(random.uniform(80.2, 83.4), 1)
+            return {
+                "status": "no_data",
+                "synced_at": None,
+                "latest_heart_rate": None,
+                "body_load": None,
+                "source": "Google Fitness / Fitbit Live Telemetry",
+            }
 
         load_score = round(min(100.0, max(8.0, (latest_hr - 60.0) * 1.75 + 12.0)), 1)
 
