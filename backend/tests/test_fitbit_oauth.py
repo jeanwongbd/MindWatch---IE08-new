@@ -88,8 +88,9 @@ class FitbitOAuth(unittest.TestCase):
         self.assertEqual(result.status_code, 502)
 
     def test_cors_does_not_allow_credentials(self):
-        result = self.client.get("/health", headers={"Origin": "https://example.com"})
-        self.assertEqual(result.headers.get("access-control-allow-origin"), "*")
+        origin = "https://mindwatch-frontend.onrender.com"
+        result = self.client.get("/health", headers={"Origin": origin})
+        self.assertEqual(result.headers.get("access-control-allow-origin"), origin)
         self.assertIsNone(result.headers.get("access-control-allow-credentials"))
 
 
