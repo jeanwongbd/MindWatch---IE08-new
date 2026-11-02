@@ -9,18 +9,19 @@ import logging
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
 from email_validator import EmailNotValidError, validate_email
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from backend.models import LoginFailure, User, UserSession
+from backend.calibration import CONSENT_VERSIONS, QUESTIONS_VERSION, InvalidAnswers, validate_answers
+from backend.models import CalibrationAnswers, Consent, LoginFailure, User, UserSession
 
 LOGGER = logging.getLogger("mindwatch")
 
@@ -35,10 +36,21 @@ _hasher = PasswordHasher()
 _dummy_hash: Optional[str] = None
 
 
+class ConsentIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    version: str
+    agreed: bool
+    adult_confirmed: bool
+
+
 class SignupIn(BaseModel):
     email: str
     password: str
     invite_code: str
+    # Both are required: no account is created without recorded consent and starting-point answers.
+    consent: ConsentIn
+    calibration: Dict[str, Any]
 
 
 class LoginIn(BaseModel):
@@ -132,12 +144,22 @@ def invite_code_valid(request: Request, code: str) -> bool:
 def signup(body: SignupIn, request: Request, db: Session = Depends(get_db)):
     if not invite_code_valid(request, body.invite_code):
         raise HTTPException(403, "Invalid invite code.")
+    consent = body.consent
+    if not (consent.agreed and consent.adult_confirmed):
+        raise HTTPException(422, "You need to agree and confirm you are 18 or over to create an account.")
+    if consent.version not in CONSENT_VERSIONS:
+        raise HTTPException(422, "That consent wording is out of date. Please reload the app.")
     try:
         email = normalize_email(body.email)
     except EmailNotValidError:
         raise HTTPException(422, "Enter a valid email address.")
     if not MIN_PASSWORD <= len(body.password) <= MAX_PASSWORD:
         raise HTTPException(422, f"Password must be {MIN_PASSWORD} to {MAX_PASSWORD} characters.")
+    try:
+        answers = validate_answers(body.calibration)
+    except InvalidAnswers:
+        # Not echoed back: these are health-related answers.
+        raise HTTPException(422, "Some starting-point answers are missing or not valid.")
     if db.scalar(select(User.id).where(User.email == email)) is not None:
         raise HTTPException(409, "That email is already registered.")
 
@@ -148,7 +170,22 @@ def signup(body: SignupIn, request: Request, db: Session = Depends(get_db)):
         password_hash=_hasher.hash(body.password),
         created_at=current,
     )
+    # The account, the consent and the answers are saved together or not at all.
     db.add(user)
+    db.add(
+        Consent(
+            id=str(uuid.uuid4()),
+            user_id=user.id,
+            version=consent.version,
+            adult_confirmed=True,
+            agreed_at=current,
+        )
+    )
+    db.add(
+        CalibrationAnswers(
+            user_id=user.id, questions_version=QUESTIONS_VERSION, answers=answers, created_at=current
+        )
+    )
     try:
         db.commit()
     except IntegrityError:

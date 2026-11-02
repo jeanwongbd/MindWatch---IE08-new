@@ -23,7 +23,7 @@ export default function WelcomeScreen({ onViewDemo, onSignIn, onCreateAccount }:
             className="w-full py-3.5 bg-ink text-background rounded-2xl hover:opacity-90 active:opacity-80 transition-opacity"
             style={{ fontWeight: 500 }}
           >
-            Create account
+            Get started
           </button>
         )}
         {onSignIn && (

@@ -1,44 +1,17 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-const TOKEN_KEY = "mindwatch.session";
-const USER = { id: "u-1", email: "student@example.com" };
-const SESSION = { token: "new-token", expires_at: "2026-02-01T00:00:00+00:00", user: USER };
-
-type Reply = { status?: number; body?: unknown; headers?: Record<string, string> } | "network-error";
-type Routes = Record<string, Reply>;
-
-/** Answers by "METHOD /path". Anything not listed is a 404, so surprises show up as failures. */
-function stubBackend(routes: Routes) {
-  const spy = vi.fn(async (url: string, init?: RequestInit) => {
-    const path = String(url).replace(/^https?:\/\/[^/]+/, "").split("?")[0];
-    const reply = routes[`${(init?.method ?? "GET").toUpperCase()} ${path}`];
-    if (reply === "network-error") throw new TypeError("Failed to fetch");
-    if (!reply) return new Response("{}", { status: 404 });
-    const status = reply.status ?? 200;
-    const body = status === 204 ? null : JSON.stringify(reply.body ?? {});
-    return new Response(body, { status, headers: reply.headers });
-  });
-  vi.stubGlobal("fetch", spy);
-  return spy;
-}
-
-function callsTo(spy: ReturnType<typeof stubBackend>, key: string) {
-  return spy.mock.calls.filter(([url, init]) => {
-    const path = String(url).replace(/^https?:\/\/[^/]+/, "").split("?")[0];
-    return `${(init?.method ?? "GET").toUpperCase()} ${path}` === key;
-  });
-}
-
-async function loadApp(accountsOn = true) {
-  if (accountsOn) vi.stubEnv("VITE_ACCOUNTS_ENABLED", "true");
-  const { default: App } = await import("./App");
-  render(<App />);
-}
-
-function fill(label: string, value: string) {
-  fireEvent.change(screen.getByLabelText(label), { target: { value } });
-}
+import {
+  SESSION,
+  TAPPED_ANSWERS,
+  TOKEN_KEY,
+  USER,
+  type Routes,
+  callsTo,
+  fill,
+  loadApp,
+  reachAccountForm,
+  stubBackend,
+} from "./test/accountsHelpers";
 
 beforeEach(() => localStorage.clear());
 
@@ -56,7 +29,7 @@ describe("account buttons", () => {
     await loadApp(false);
     expect(screen.getByRole("button", { name: "View demo" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Sign in" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Create account" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Get started" })).toBeNull();
   });
 
   it("ignore a saved token when accounts are off", async () => {
@@ -72,7 +45,7 @@ describe("creating an account", () => {
   it("create_account_then_home", async () => {
     const spy = stubBackend({ "POST /auth/signup": { status: 201, body: SESSION } });
     await loadApp();
-    fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+    reachAccountForm();
     fill("Email", USER.email);
     fill("Password", "a long password 1");
     fill("Invite code", "local-code");
@@ -88,13 +61,15 @@ describe("creating an account", () => {
       email: USER.email,
       password: "a long password 1",
       invite_code: "local-code",
+      consent: { version: "v0-draft", agreed: true, adult_confirmed: true },
+      calibration: TAPPED_ANSWERS,
     });
   });
 
   it("refuses a short password without calling the server", async () => {
     const spy = stubBackend({});
     await loadApp();
-    fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+    reachAccountForm();
     fill("Email", USER.email);
     fill("Password", "short");
     fill("Invite code", "local-code");
@@ -106,7 +81,7 @@ describe("creating an account", () => {
   it("shows the server's message for a bad invite code", async () => {
     stubBackend({ "POST /auth/signup": { status: 403, body: { detail: "Invalid invite code." } } });
     await loadApp();
-    fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+    reachAccountForm();
     fill("Email", USER.email);
     fill("Password", "a long password 1");
     fill("Invite code", "wrong");

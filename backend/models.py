@@ -1,7 +1,7 @@
 """Database tables. Keep migrations in step: every change here needs a new revision."""
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -37,3 +37,27 @@ class LoginFailure(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     email: Mapped[str] = mapped_column(String(320), nullable=False, index=True)
     failed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class Consent(Base):
+    __tablename__ = "consents"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    # Which wording the person agreed to, and when. Set by the server, not the phone.
+    version: Mapped[str] = mapped_column(String(32), nullable=False)
+    adult_confirmed: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    agreed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class CalibrationAnswers(Base):
+    __tablename__ = "calibration_answers"
+
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    questions_version: Mapped[str] = mapped_column(String(16), nullable=False)
+    answers: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

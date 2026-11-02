@@ -1,16 +1,20 @@
 import { useState, type FormEvent } from "react";
 import { api, type AuthSession } from "../api";
+import type { Answers } from "../calibrationQuestions";
+import { CONSENT_VERSION } from "../consentText";
 import AuthFrame, { friendlyError, inputClass, linkButtonClass, primaryButtonClass } from "./AuthFrame";
 
 const MIN_PASSWORD = 10;
 
 interface Props {
+  /** The starting-point answers and the consent given earlier. They are sent only now. */
+  answers: Answers;
   onSuccess: (session: AuthSession) => void;
   onBack: () => void;
   onSignIn: () => void;
 }
 
-export default function CreateAccountScreen({ onSuccess, onBack, onSignIn }: Props) {
+export default function CreateAccountScreen({ answers, onSuccess, onBack, onSignIn }: Props) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [inviteCode, setInviteCode] = useState("");
@@ -28,7 +32,13 @@ export default function CreateAccountScreen({ onSuccess, onBack, onSignIn }: Pro
     try {
       const session = await api<AuthSession>("/auth/signup", {
         method: "POST",
-        body: JSON.stringify({ email, password, invite_code: inviteCode }),
+        body: JSON.stringify({
+          email,
+          password,
+          invite_code: inviteCode,
+          consent: { version: CONSENT_VERSION, agreed: true, adult_confirmed: true },
+          calibration: answers,
+        }),
       });
       onSuccess(session);
     } catch (e) {

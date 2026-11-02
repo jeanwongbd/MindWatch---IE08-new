@@ -15,6 +15,25 @@ from backend.settings import Settings, get_settings
 CODE = "test-invite-code"
 EMAIL = "Student@Example.com"
 PASSWORD = "correct horse battery"
+CONSENT = {"version": "v0-draft", "agreed": True, "adult_confirmed": True}
+ANSWERS = {
+    "usual_stress": 4,
+    "sleep_hours": "6_7",
+    "sleep_quality": "fair",
+    "activity": "lightly_active",
+    "wears_watch": "yes",
+    "stress_time": "evening",
+}
+
+
+def signup_body(email=EMAIL, password=PASSWORD, code=CODE, consent=CONSENT, calibration=ANSWERS):
+    return {
+        "email": email,
+        "password": password,
+        "invite_code": code,
+        "consent": consent,
+        "calibration": calibration,
+    }
 
 
 class Accounts(unittest.TestCase):
@@ -34,9 +53,7 @@ class Accounts(unittest.TestCase):
         self.addCleanup(context.__exit__, None, None, None)
 
     def signup(self, email=EMAIL, password=PASSWORD, code=CODE):
-        return self.client.post(
-            "/auth/signup", json={"email": email, "password": password, "invite_code": code}
-        )
+        return self.client.post("/auth/signup", json=signup_body(email, password, code))
 
     def login(self, email=EMAIL, password=PASSWORD):
         return self.client.post("/auth/login", json={"email": email, "password": password})
@@ -204,9 +221,7 @@ class WithoutDatabase(unittest.TestCase):
         self.addCleanup(tmp.cleanup)
         app = create_app(state_path=Path(tmp.name) / "c.json", settings=Settings(invite_codes=(CODE,)))
         with TestClient(app) as client:
-            signup = client.post(
-                "/auth/signup", json={"email": EMAIL, "password": PASSWORD, "invite_code": CODE}
-            )
+            signup = client.post("/auth/signup", json=signup_body())
             self.assertEqual(signup.status_code, 503)
             self.assertEqual(client.get("/auth/me").status_code, 503)
             self.assertEqual(client.get("/health").json()["status"], "online")
@@ -227,9 +242,7 @@ class InviteCodeSettings(unittest.TestCase):
         url = f"sqlite:///{(Path(tmp.name) / 'a.db').as_posix()}"
         app = create_app(state_path=Path(tmp.name) / "c.json", settings=Settings(database_url=url))
         with TestClient(app) as client:
-            response = client.post(
-                "/auth/signup", json={"email": EMAIL, "password": PASSWORD, "invite_code": ""}
-            )
+            response = client.post("/auth/signup", json=signup_body(code=""))
             self.assertEqual(response.status_code, 403)
 
 

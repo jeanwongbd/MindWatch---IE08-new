@@ -1,0 +1,12 @@
+{
+  "questions_version": "v1",
+  "consent_versions": ["v0-draft"],
+  "questions": [
+    { "id": "usual_stress", "kind": "scale", "min": 0, "max": 10 },
+    { "id": "sleep_hours", "kind": "choice", "options": ["under_5", "5_6", "6_7", "7_8", "8_9", "over_9"] },
+    { "id": "sleep_quality", "kind": "choice", "options": ["poor", "fair", "good", "great"] },
+    { "id": "activity", "kind": "choice", "options": ["mostly_sitting", "lightly_active", "moderately_active", "very_active"] },
+    { "id": "wears_watch", "kind": "choice", "options": ["yes", "no"] },
+    { "id": "stress_time", "kind": "choice", "options": ["morning", "afternoon", "evening", "night", "varies"] }
+  ]
+}
