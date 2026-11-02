@@ -170,8 +170,14 @@ def signup(body: SignupIn, request: Request, db: Session = Depends(get_db)):
         password_hash=_hasher.hash(body.password),
         created_at=current,
     )
-    # The account, the consent and the answers are saved together or not at all.
+    # The account, the consent and the answers are saved together or not at all. The user row is
+    # sent first, since the other two point at it, and a duplicate email shows up right here.
     db.add(user)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, "That email is already registered.")
     db.add(
         Consent(
             id=str(uuid.uuid4()),
@@ -186,11 +192,7 @@ def signup(body: SignupIn, request: Request, db: Session = Depends(get_db)):
             user_id=user.id, questions_version=QUESTIONS_VERSION, answers=answers, created_at=current
         )
     )
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(409, "That email is already registered.")
+    db.commit()
     LOGGER.info("account created user_id=%s", user.id)
     return start_session(db, user, current)
 

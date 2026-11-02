@@ -3,7 +3,7 @@ from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 
 MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
@@ -18,7 +18,14 @@ def normalize_database_url(url: str) -> str:
 
 
 def make_engine(url: str) -> Engine:
-    return create_engine(normalize_database_url(url), pool_pre_ping=True)
+    engine = create_engine(normalize_database_url(url), pool_pre_ping=True)
+    if engine.dialect.name == "sqlite":
+        # SQLite ignores foreign keys unless asked. Turn them on so tests behave like Postgres.
+        @event.listens_for(engine, "connect")
+        def _enforce_foreign_keys(dbapi_connection, _record):
+            dbapi_connection.execute("PRAGMA foreign_keys=ON")
+
+    return engine
 
 
 def run_migrations(url: str) -> None:

@@ -123,3 +123,44 @@ class QuestionList(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ForeignKeysAreEnforced(unittest.TestCase):
+    """SQLite ignores foreign keys by default. Postgres does not, so the tests must not either."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        db_path = Path(self.tmp.name) / "fk.db"
+        settings = Settings(database_url=f"sqlite:///{db_path.as_posix()}", invite_codes=(CODE,))
+        app = create_app(state_path=Path(self.tmp.name) / "c.json", settings=settings)
+        context = TestClient(app)
+        self.client = context.__enter__()
+        self.addCleanup(context.__exit__, None, None, None)
+        self.engine = app.state.engine
+
+    def test_rows_that_point_at_a_missing_user_are_refused(self):
+        from sqlalchemy import text
+        from sqlalchemy.exc import IntegrityError
+
+        with self.assertRaises(IntegrityError):
+            with self.engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "insert into sessions (id, user_id, token_hash, created_at, expires_at) "
+                        "values ('s', 'no-such-user', 'h', '2026-01-01', '2026-02-01')"
+                    )
+                )
+
+    def test_signup_works_with_foreign_keys_on_and_deleting_a_user_removes_their_rows(self):
+        from sqlalchemy import text
+
+        response = self.client.post("/auth/signup", json=signup_body())
+        self.assertEqual(response.status_code, 201)
+        user_id = response.json()["user"]["id"]
+        with self.engine.begin() as conn:
+            conn.execute(text("delete from users where id = :id"), {"id": user_id})
+        with self.engine.connect() as conn:
+            for table in ("consents", "calibration_answers", "sessions"):
+                count = conn.execute(text(f"select count(*) from {table}")).scalar()
+                self.assertEqual(count, 0, table)
