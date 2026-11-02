@@ -18,7 +18,8 @@ from pydantic import BaseModel, Field, StrictInt
 from requests_oauthlib import OAuth2Session
 import numpy as np
 
-from backend.db import run_migrations
+from backend.auth import router as auth_router
+from backend.db import make_engine, run_migrations
 from backend.settings import get_settings
 
 logging.basicConfig(level=logging.INFO)
@@ -430,16 +431,24 @@ def create_app(model_path=None, state_path=None, settings=None):
         if settings.database_url:
             try:
                 run_migrations(settings.database_url)
+                app.state.engine = make_engine(settings.database_url)
                 app.state.database_status = "ready"
             except Exception as e:
                 # Log the type only: the message can contain the connection string.
                 LOGGER.error("Database unavailable (%s). The demo still works.", type(e).__name__)
                 app.state.database_status = "unavailable"
         yield
+        if app.state.engine is not None:
+            app.state.engine.dispose()
 
     app = FastAPI(title="MindWatch Unified API", version="2.5.0", lifespan=lifespan)
     app.state.demo = demo
     app.state.database_status = "unavailable" if settings.database_url else "not_configured"
+    # Accounts need these. engine stays None, and the auth routes answer 503, without a database.
+    app.state.engine = None
+    app.state.clock = lambda: datetime.now(timezone.utc)
+    app.state.invite_codes = settings.invite_codes
+    app.include_router(auth_router)
 
     app.add_middleware(
         CORSMiddleware,

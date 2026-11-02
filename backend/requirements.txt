@@ -30,3 +30,9 @@ psycopg[binary]==3.3.6
 psycopg-binary==3.3.6
 mako==1.4.3
 markupsafe==3.0.4
+argon2-cffi==25.1.0
+argon2-cffi-bindings==26.1.0
+cffi==2.1.1
+pycparser==3.12
+email-validator==2.3.0
+dnspython==2.9.1

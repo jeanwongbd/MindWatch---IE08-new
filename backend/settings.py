@@ -21,6 +21,8 @@ DEFAULT_CORS_ORIGINS: Tuple[str, ...] = (
 class Settings:
     database_url: Optional[str] = None
     cors_origins: Tuple[str, ...] = DEFAULT_CORS_ORIGINS
+    # Codes that allow signing up. Set INVITE_CODES in Render; never put a real one in code.
+    invite_codes: Tuple[str, ...] = ()
 
 
 def _split(value: str) -> Tuple[str, ...]:
@@ -39,4 +41,7 @@ def get_settings() -> Settings:
     return Settings(
         database_url=os.getenv("DATABASE_URL", "").strip() or None,
         cors_origins=origins,
+        invite_codes=tuple(
+            code.strip() for code in os.getenv("INVITE_CODES", "").split(",") if code.strip()
+        ),
     )
