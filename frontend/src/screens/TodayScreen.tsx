@@ -377,6 +377,8 @@ export default function TodayScreen({
       </div>
 
       {/* Live Wearable Sync Trigger */}
+      {data.mode !== "synthetic_scenario" && (
+      <>
       <button
         onClick={handleLiveSync}
         disabled={isSyncing}
@@ -393,6 +395,8 @@ export default function TodayScreen({
         <p role="status" className="text-center text-[11px] font-mono text-muted">
           {syncMessage}
         </p>
+      )}
+      </>
       )}
 
       {/* CTA Button */}

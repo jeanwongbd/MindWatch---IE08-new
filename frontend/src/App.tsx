@@ -104,6 +104,7 @@ export default function App() {
       <CheckInScreen
         key={`${mode}/${date}/${scenario}`}
         data={data}
+        onReturn={() => setActive("Today")}
         onDone={() => {
           setNotice("Check-in saved.");
           setRevision((r) => r + 1);

@@ -16,9 +16,10 @@ const CONTEXT_TAGS = [
 interface Props {
   data?: DemoRecord;
   onDone: () => void;
+  onReturn: () => void;
 }
 
-export default function CheckInScreen({ data, onDone }: Props) {
+export default function CheckInScreen({ data, onDone, onReturn }: Props) {
   // Read-only synthetic scenario mode
   if (data?.mode === "synthetic_scenario") {
     return (
@@ -36,11 +37,11 @@ export default function CheckInScreen({ data, onDone }: Props) {
             Synthetic scenarios are read-only fixtures.
           </p>
           <p style={{ fontFamily: "var(--font-display)" }} className="text-3xl text-accent-calm">
-            {data.reported_stress?.value ?? 0} <span className="text-sm text-muted">/ 10</span>
+            {data.reported_stress?.value ?? 0} <span className="text-sm text-muted">/ {data.reported_stress?.scale_max ?? 10}</span>
           </p>
         </div>
         <button
-          onClick={onDone}
+          onClick={onReturn}
           className="w-full py-3.5 bg-surface-raised text-ink border border-border rounded-xl hover:border-dim transition-colors"
           style={{ fontFamily: "var(--font-mono)", fontSize: "11px" }}
         >
