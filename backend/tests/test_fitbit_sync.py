@@ -89,6 +89,8 @@ class FitbitSync(unittest.TestCase):
         body = self.client.get("/api/fitbit/status").json()
         self.assertIsNone(body["latest_hr"])
         self.assertIsNone(body["body_load"])
+        self.assertIsNone(self.saved["latest_hr"])
+        self.assertIsNone(self.saved["body_load"])
 
 
 if __name__ == "__main__":
