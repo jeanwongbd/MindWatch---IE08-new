@@ -30,5 +30,6 @@ export function dayBefore(iso: string): string {
 
 /** Minutes ahead of UTC on this phone (Singapore is 480). The server uses it to know what "today" is. */
 export function utcOffsetMinutes(when: Date = new Date()): number {
-  return -when.getTimezoneOffset();
+  // "|| 0" turns negative zero (what -0 gives on a phone set to UTC) into a plain 0.
+  return -when.getTimezoneOffset() || 0;
 }
