@@ -14,7 +14,7 @@ from backend.main import create_app
 RECORD_KEYS = {
     "user_id", "date", "mode", "source_label", "reported_stress",
     "wearable_estimate", "comparison", "measurements", "imputed_features",
-    "limitation",
+    "limitation", "contributors",
 }
 REPORTED_STRESS_KEYS = {"value", "scale_max", "normalized_0_100", "source"}
 WEARABLE_ESTIMATE_KEYS = {"value", "scale_max", "status", "method"}

@@ -70,7 +70,6 @@ export default function TodayScreen({
     if (initialData) return;
 
     api<any>("/today")
-      .catch(() => api<any>("/profiles/p01/today"))
       .then((json) => {
         setData(json);
         setLoading(false);
@@ -301,19 +300,27 @@ export default function TodayScreen({
               {currentLoad == null
                 ? "Not enough data"
                 : currentLoad >= 50
-                  ? "Higher than usual"
-                  : "Around baseline"}
+                  ? "At or above 50"
+                  : "Below 50"}
             </p>
             <p className="text-[9px] text-dim mt-0.5 truncate">
               {liveTelemetry
                 ? `Live: ${liveTelemetry.heartRate} bpm`
-                : estimate.method === "synthetic_fixture"
-                  ? "Synthetic fixture"
-                  : "Ridge V2 Personal model"}
+                : currentLoad == null
+                  ? "No estimate"
+                  : estimate.method === "synthetic_fixture"
+                    ? "Synthetic fixture"
+                    : "Ridge V2 Personal model"}
             </p>
           </div>
         </div>
       </div>
+
+      {!liveTelemetry && currentLoad != null && data.imputed_features?.length > 0 && (
+        <p className="text-[11px] text-accent-load text-center">
+          This estimate used filled-in values for {data.imputed_features.length} of 4 inputs.
+        </p>
+      )}
 
       {/* Comparison / Mismatch Banner */}
       <div

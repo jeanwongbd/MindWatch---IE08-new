@@ -74,7 +74,6 @@ export default function CheckInScreen({ data, onDone, onReturn }: Props) {
 
     const payload = {
       date: data?.date,
-      user_id: "p01",
       stress,
       context_tags: tags,
       context: tags,
