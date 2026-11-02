@@ -55,6 +55,14 @@ live_fitbit_cache = {
 }
 
 
+def require_google_secret():
+    if not GOOGLE_CLIENT_SECRET:
+        raise HTTPException(
+            status_code=503,
+            detail="Google OAuth is not configured. Set the GOOGLE_CLIENT_SECRET environment variable.",
+        )
+
+
 def comparison(estimate, reported):
     if estimate is None or reported is None:
         return {
@@ -438,6 +446,7 @@ def create_app(model_path=None, state_path=None):
     @app.get("/api/fitbit/login")
     def fitbit_login():
         """Initiates the Google Fitness OAuth 2.0 handshake."""
+        require_google_secret()
         oauth = OAuth2Session(GOOGLE_CLIENT_ID, redirect_uri=REDIRECT_URI, scope=SCOPES)
         authorization_url, _ = oauth.authorization_url(
             AUTH_URL, 
@@ -449,6 +458,7 @@ def create_app(model_path=None, state_path=None):
     @app.get("/api/fitbit/callback")
     def fitbit_callback(code: str):
         """Swaps code for access token upon user approval."""
+        require_google_secret()
         payload = {
             "client_id": GOOGLE_CLIENT_ID,
             "client_secret": GOOGLE_CLIENT_SECRET,
