@@ -29,6 +29,7 @@ const BASE: Summary = {
   today_vs_usual: null,
   recent_words: [],
   streak: { current: 0, best: 0, status: "none" },
+  support_suggested: false,
   estimate: null,
 };
 const FIRST_DAY: Summary = {

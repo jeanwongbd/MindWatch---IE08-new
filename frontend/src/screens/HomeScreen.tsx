@@ -10,6 +10,8 @@ interface Props {
   onCheckIn: () => void;
   onTrends: () => void;
   onReminders: () => void;
+  onAccount: () => void;
+  onSupport: () => void;
   onSignOut: () => void;
 }
 
@@ -48,7 +50,7 @@ const secondaryButtonClass =
   "w-full py-3.5 border border-border text-ink rounded-2xl hover:opacity-90 active:opacity-80 transition-opacity";
 
 /** The signed-in Home. Plain descriptions of the person's own check-ins, never a cause or a prediction. */
-export default function HomeScreen({ user, onCheckIn, onTrends, onReminders, onSignOut }: Props) {
+export default function HomeScreen({ user, onCheckIn, onTrends, onReminders, onAccount, onSupport, onSignOut }: Props) {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
@@ -133,6 +135,17 @@ export default function HomeScreen({ user, onCheckIn, onTrends, onReminders, onS
             </div>
           )}
 
+          {summary.support_suggested && (
+            <div role="group" aria-label="Support suggestion" className="rounded-2xl border border-border p-4 text-center space-y-3">
+              <p className="text-sm text-ink">
+                These last few days have been hard. You're not alone, and there are people you can talk to.
+              </p>
+              <button type="button" onClick={onSupport} className={secondaryButtonClass} style={{ fontWeight: 500 }}>
+                See support options
+              </button>
+            </div>
+          )}
+
           <WebReminderBanner userId={user.id} todayDone={summary.today_checkin !== null} />
           {summary.count >= 1 && <ReminderOffer userId={user.id} />}
 
@@ -185,9 +198,17 @@ export default function HomeScreen({ user, onCheckIn, onTrends, onReminders, onS
       <button onClick={onReminders} className={secondaryButtonClass} style={{ fontWeight: 500 }}>
         Reminders
       </button>
+      <button onClick={onAccount} className={secondaryButtonClass} style={{ fontWeight: 500 }}>
+        Account
+      </button>
       <button onClick={onSignOut} className={secondaryButtonClass} style={{ fontWeight: 500 }}>
         Sign out
       </button>
+      <div className="text-center">
+        <button type="button" onClick={onSupport} className={linkButtonClass}>
+          Need support?
+        </button>
+      </div>
     </AuthFrame>
   );
 }

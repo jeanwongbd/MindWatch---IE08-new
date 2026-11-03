@@ -206,6 +206,36 @@ def _recent_failures(db: Session, email: str, current: datetime):
     ).one()
 
 
+def _raise_if_locked(db: Session, email: str, current: datetime) -> None:
+    count, latest = _recent_failures(db, email, current)
+    if count >= MAX_FAILURES:
+        retry_after = max(1, int((as_utc(latest) + LOCKOUT - current).total_seconds()))
+        raise HTTPException(
+            429, "Too many failed attempts. Try again later.", headers={"Retry-After": str(retry_after)}
+        )
+
+
+def hash_password(password: str) -> str:
+    return _hasher.hash(password)
+
+
+def require_password(db: Session, user: User, password: str, current: datetime) -> None:
+    """Check the signed-in person's password again before something that cannot be undone.
+
+    It shares the login lockout, so a stolen session cannot be used to guess the password here.
+    """
+    _raise_if_locked(db, user.email, current)
+    try:
+        _hasher.verify(user.password_hash, password)
+    except (VerificationError, InvalidHashError):
+        db.add(LoginFailure(email=user.email, failed_at=current))
+        db.commit()
+        # 403, not 401: the person is signed in. A 401 would look like an expired session.
+        raise HTTPException(403, "That password is not right.")
+    db.execute(delete(LoginFailure).where(LoginFailure.email == user.email))
+    db.commit()
+
+
 @router.post("/login")
 def login(body: LoginIn, request: Request, db: Session = Depends(get_db)):
     global _dummy_hash
@@ -216,12 +246,7 @@ def login(body: LoginIn, request: Request, db: Session = Depends(get_db)):
     except EmailNotValidError:
         raise generic
 
-    count, latest = _recent_failures(db, email, current)
-    if count >= MAX_FAILURES:
-        retry_after = max(1, int((as_utc(latest) + LOCKOUT - current).total_seconds()))
-        raise HTTPException(
-            429, "Too many failed attempts. Try again later.", headers={"Retry-After": str(retry_after)}
-        )
+    _raise_if_locked(db, email, current)
 
     user = db.scalar(select(User).where(User.email == email))
     if user is None:
@@ -260,3 +285,31 @@ def logout(session: UserSession = Depends(current_session), db: Session = Depend
 @router.get("/me")
 def me(user: User = Depends(current_user)):
     return {"id": user.id, "email": user.email}
+
+
+class PasswordChangeIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    current_password: str
+    new_password: str
+
+
+@router.post("/password", status_code=204)
+def change_password(
+    body: PasswordChangeIn,
+    request: Request,
+    session: UserSession = Depends(current_session),
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """Change the password. Every other signed-in device is signed out; this one stays signed in."""
+    require_password(db, user, body.current_password, now(request))
+    if not MIN_PASSWORD <= len(body.new_password) <= MAX_PASSWORD:
+        raise HTTPException(422, f"Password must be {MIN_PASSWORD} to {MAX_PASSWORD} characters.")
+    if body.new_password == body.current_password:
+        raise HTTPException(422, "Choose a password you have not used just now.")
+    user.password_hash = _hasher.hash(body.new_password)
+    db.execute(delete(UserSession).where(UserSession.user_id == user.id, UserSession.id != session.id))
+    db.commit()
+    LOGGER.info("password changed user_id=%s", user.id)
+    return Response(status_code=204)

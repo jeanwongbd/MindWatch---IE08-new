@@ -24,6 +24,10 @@ MIN_FOR_AVERAGES = 3  # fewer than this and an average says nothing
 RECENT_DAYS = 7
 COMPARE_THRESHOLD = 1.5  # points on the 0 to 10 scale before today counts as higher or lower
 WORDS_SHOWN = 5
+# Home shows a calm "there are people you can talk to" message when the person's most recent
+# check-ins, all within the last week, are each this high. It points to help and never diagnoses.
+SUPPORT_CHECKINS = 3
+SUPPORT_STRESS = 8
 
 
 def _round(value: float) -> float:
@@ -71,6 +75,9 @@ def build_summary(rows: List[Checkin], today: date) -> Dict:
         else None
     )
 
+    newest = sorted(recent, key=lambda r: r.date, reverse=True)[:SUPPORT_CHECKINS]
+    support_suggested = len(newest) == SUPPORT_CHECKINS and all(r.stress >= SUPPORT_STRESS for r in newest)
+
     today_vs_usual = None
     if today_row is not None and usual_raw is not None:
         diff = today_row.stress - usual_raw
@@ -96,6 +103,7 @@ def build_summary(rows: List[Checkin], today: date) -> Dict:
         "today_vs_usual": today_vs_usual,
         "recent_words": recent_words,
         "streak": streaks({r.date for r in rows}, today),
+        "support_suggested": support_suggested,
         "estimate": None,
     }
 

@@ -13,6 +13,8 @@ export interface Summary {
   recent_words: { word: string; count: number }[];
   /** Consecutive days with a check-in. "waiting" means today has no check-in yet but yesterday does. */
   streak: { current: number; best: number; status: "building" | "waiting" | "none" };
+  /** True when the most recent check-ins have all been very high, so Home points to support. */
+  support_suggested: boolean;
   /** Always null until a personal model has been trained and tested. */
   estimate: null;
 }

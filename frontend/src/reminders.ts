@@ -193,3 +193,13 @@ export const DENIED_MESSAGE =
 export const WEB_MESSAGE =
   "Reminders arrive as phone notifications in the Android app. On the website you'll see a prompt on Home instead.";
 export const FAILED_MESSAGE = "Couldn't set up the reminder just now. You can try again from Reminders.";
+
+/** Forget this person's saved reminder choices on this phone, for example after their account is deleted. */
+export function clearPrefs(userId: string): void {
+  memory.delete(userId);
+  try {
+    localStorage.removeItem(prefsKey(userId));
+  } catch {
+    // Nothing stored to clear.
+  }
+}

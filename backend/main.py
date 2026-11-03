@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field, StrictInt
 from requests_oauthlib import OAuth2Session
 import numpy as np
 
+from backend.account import router as account_router
 from backend.auth import router as auth_router
 from backend.checkins import router as checkins_router
 from backend.db import make_engine, run_migrations
@@ -453,6 +454,7 @@ def create_app(model_path=None, state_path=None, settings=None):
     app.include_router(auth_router)
     app.include_router(checkins_router)
     app.include_router(summary_router)
+    app.include_router(account_router)
 
     app.add_middleware(
         CORSMiddleware,
