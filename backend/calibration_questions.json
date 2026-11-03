@@ -1,6 +1,6 @@
 {
   "questions_version": "v1",
-  "consent_versions": ["v0-draft"],
+  "consent_versions": ["v0-draft-2"],
   "questions": [
     { "id": "usual_stress", "kind": "scale", "min": 0, "max": 10 },
     { "id": "sleep_hours", "kind": "choice", "options": ["under_5", "5_6", "6_7", "7_8", "8_9", "over_9"] },

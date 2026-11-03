@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ApiError, api } from "../api";
 import { WORDS, dayBefore, localDate, utcOffsetMinutes } from "../checkinWords";
+import { MANUAL_QUESTIONS, type ManualId } from "../manualQuestions";
 import { reminders } from "../remindersService";
 import AuthFrame, { friendlyError, linkButtonClass, primaryButtonClass } from "./AuthFrame";
 
@@ -8,7 +9,13 @@ interface SavedCheckin {
   date: string;
   stress: number;
   word: string | null;
+  sleep_hours?: string | null;
+  sleep_quality?: string | null;
+  activity?: string | null;
 }
+
+type Manual = Record<ManualId, string | null>;
+const NO_MANUAL: Manual = { sleep_hours: null, sleep_quality: null, activity: null };
 
 type Which = "today" | "yesterday";
 
@@ -29,10 +36,26 @@ export default function DailyCheckInScreen({ userId, onBack }: Props) {
   const [which, setWhich] = useState<Which>("today");
   const [stress, setStress] = useState<number | null>(null);
   const [word, setWord] = useState<string | null>(null);
+  // People with no smart watch are also asked about sleep and activity. Whether they are asked is
+  // decided by the server; if it can't be reached the questions are simply left out.
+  const [asksManual, setAsksManual] = useState(false);
+  const [manual, setManual] = useState<Manual>(NO_MANUAL);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    let live = true;
+    api<{ asks_sleep_activity: boolean }>("/me/checkins/setup")
+      .then((setup) => {
+        if (live) setAsksManual(setup.asks_sleep_activity === true);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, []);
 
   // Show what was already saved for the chosen day, so it can be changed.
   useEffect(() => {
@@ -40,6 +63,7 @@ export default function DailyCheckInScreen({ userId, onBack }: Props) {
     setLoading(true);
     setStress(null);
     setWord(null);
+    setManual(NO_MANUAL);
     setMessage("");
     setError("");
     api<SavedCheckin>(`/me/checkins/${dayFor(which)}`)
@@ -47,6 +71,11 @@ export default function DailyCheckInScreen({ userId, onBack }: Props) {
         if (!live) return;
         setStress(saved.stress);
         setWord(saved.word);
+        setManual({
+          sleep_hours: saved.sleep_hours ?? null,
+          sleep_quality: saved.sleep_quality ?? null,
+          activity: saved.activity ?? null,
+        });
       })
       .catch((e) => {
         // 404 just means nothing is saved for that day yet.
@@ -68,7 +97,7 @@ export default function DailyCheckInScreen({ userId, onBack }: Props) {
     try {
       await api(`/me/checkins/${dayFor(which)}`, {
         method: "PUT",
-        body: JSON.stringify({ stress, word, utc_offset_minutes: utcOffsetMinutes() }),
+        body: JSON.stringify({ stress, word, ...(asksManual ? manual : {}), utc_offset_minutes: utcOffsetMinutes() }),
       });
       setMessage("Saved. You can change it until the day ends.");
       if (which === "today") {
@@ -141,6 +170,28 @@ export default function DailyCheckInScreen({ userId, onBack }: Props) {
           ))}
         </div>
       </div>
+
+      {asksManual &&
+        MANUAL_QUESTIONS.map((q) => (
+          <div key={q.id}>
+            <h2 className="text-base text-ink text-center">{q.prompt(which)}</h2>
+            <p className="text-[11px] text-dim text-center mb-2">Optional. Tap again to clear it.</p>
+            <div className="flex flex-wrap gap-2 justify-center" role="group" aria-label={q.group}>
+              {q.options.map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  aria-pressed={manual[q.id] === o.value}
+                  onClick={() => setManual((m) => ({ ...m, [q.id]: m[q.id] === o.value ? null : o.value }))}
+                  disabled={loading}
+                  className={chip(manual[q.id] === o.value)}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
 
       {error && (
         <p role="alert" className="text-xs text-accent-stress text-center">
