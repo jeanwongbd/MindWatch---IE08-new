@@ -178,7 +178,7 @@ describe("nothing leaves the phone before the account is created", () => {
 
     const body = JSON.parse(callsTo(spy, "POST /auth/signup")[0][1]!.body as string);
     expect(body.calibration).toEqual(TAPPED_ANSWERS);
-    expect(body.consent).toEqual({ version: "v0-draft", agreed: true, adult_confirmed: true });
+    expect(body.consent).toEqual({ version: "v0-draft-2", agreed: true, adult_confirmed: true });
     expect(localStorage.getItem(DRAFT_KEY)).toBeNull();
   });
 

@@ -61,7 +61,7 @@ describe("creating an account", () => {
       email: USER.email,
       password: "a long password 1",
       invite_code: "local-code",
-      consent: { version: "v0-draft", agreed: true, adult_confirmed: true },
+      consent: { version: "v0-draft-2", agreed: true, adult_confirmed: true },
       calibration: TAPPED_ANSWERS,
     });
   });

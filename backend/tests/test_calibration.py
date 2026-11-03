@@ -74,7 +74,7 @@ class SignupConsentAndAnswers(unittest.TestCase):
                 "select answers, questions_version, user_id from calibration_answers"
             ).fetchone()
         self.assertEqual((consent_user, answers_user), (user_id, user_id))
-        self.assertEqual(version, "v0-draft")
+        self.assertEqual(version, "v0-draft-2")
         self.assertTrue(adult)
         self.assertTrue(agreed_at.startswith("2026-01-01 12:00"))  # the server's clock, not the phone's
         self.assertEqual(json.loads(answers), ANSWERS)

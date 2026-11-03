@@ -12,7 +12,7 @@ from sqlalchemy import text
 from backend.checkins import WORDS
 from backend.main import create_app
 from backend.settings import Settings
-from backend.tests.test_auth import CODE, signup_body
+from backend.tests.test_auth import ANSWERS, CODE, signup_body
 
 # 12:00 UTC on 1 January 2026. Everything below is worked out from this moment.
 NOW = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
@@ -223,6 +223,87 @@ class DemoCheckinUnchanged(unittest.TestCase):
             date = client.get("/demo/config").json()["default_date"]
             self.assertEqual(client.post("/checkin", json={"date": date, "stress": 3}).status_code, 200)
             self.assertEqual(client.get("/me/checkins").status_code, 503)  # accounts are off, demo is not
+
+
+class ByHandSleepAndActivity(unittest.TestCase):
+    """People with no smart watch can also answer sleep and activity questions with their check-in."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.db_path = Path(self.tmp.name) / "app.db"
+        settings = Settings(database_url=f"sqlite:///{self.db_path.as_posix()}", invite_codes=(CODE,))
+        self.app = create_app(state_path=Path(self.tmp.name) / "state.json", settings=settings)
+        self.app.state.clock = lambda: NOW
+        context = TestClient(self.app)
+        self.client = context.__enter__()
+        self.addCleanup(context.__exit__, None, None, None)
+        self.watch = self.new_user("watch@example.com", "yes")
+        self.nowatch = self.new_user("nowatch@example.com", "no")
+
+    def new_user(self, email, wears_watch):
+        body = signup_body(email=email, calibration={**ANSWERS, "wears_watch": wears_watch})
+        response = self.client.post("/auth/signup", json=body)
+        self.assertEqual(response.status_code, 201)
+        return {"Authorization": f"Bearer {response.json()['token']}"}
+
+    def save(self, who, day=TODAY, **fields):
+        return self.client.put(f"/me/checkins/{day}", json={"stress": 4, "utc_offset_minutes": 0, **fields}, headers=who)
+
+    def rows(self, sql):
+        with closing(sqlite3.connect(self.db_path)) as conn:
+            return conn.execute(sql).fetchall()
+
+    def asks(self, who):
+        response = self.client.get("/me/checkins/setup", headers=who)
+        self.assertEqual(response.status_code, 200)
+        return response.json()["asks_sleep_activity"]
+
+    def test_only_people_with_no_smart_watch_are_asked(self):
+        self.assertIs(self.asks(self.nowatch), True)
+        self.assertIs(self.asks(self.watch), False)
+
+    def test_setup_needs_a_login(self):
+        self.assertEqual(self.client.get("/me/checkins/setup").status_code, 401)
+
+    def test_a_check_in_saves_with_the_three_answers_and_reads_back(self):
+        answers = {"sleep_hours": "6_7", "sleep_quality": "fair", "activity": "lightly_active"}
+        self.assertEqual(self.save(self.nowatch, **answers).status_code, 201)
+        saved = self.client.get(f"/me/checkins/{TODAY}", headers=self.nowatch).json()
+        self.assertEqual({k: saved[k] for k in answers}, answers)
+        listed = self.client.get("/me/checkins", headers=self.nowatch).json()["checkins"][0]
+        self.assertEqual({k: listed[k] for k in answers}, answers)
+
+    def test_the_answers_are_optional_and_never_block_a_check_in(self):
+        self.assertEqual(self.save(self.nowatch).status_code, 201)
+        saved = self.client.get(f"/me/checkins/{TODAY}", headers=self.nowatch).json()
+        self.assertEqual((saved["sleep_hours"], saved["sleep_quality"], saved["activity"]), (None, None, None))
+        self.assertEqual(self.save(self.nowatch, sleep_hours="7_8").status_code, 200)  # some answered, some not
+
+    def test_changing_a_check_in_replaces_the_answers(self):
+        self.save(self.nowatch, sleep_hours="under_5", sleep_quality="poor", activity="very_active")
+        self.save(self.nowatch, sleep_hours="8_9")
+        saved = self.client.get(f"/me/checkins/{TODAY}", headers=self.nowatch).json()
+        self.assertEqual((saved["sleep_hours"], saved["sleep_quality"], saved["activity"]), ("8_9", None, None))
+
+    def test_only_the_fixed_options_are_accepted(self):
+        for field, value in (("sleep_hours", "lots"), ("sleep_quality", "7_8"), ("activity", "ran a marathon, felt awful")):
+            self.assertEqual(self.save(self.nowatch, **{field: value}).status_code, 422, field)
+        self.assertEqual(self.client.get("/me/checkins", headers=self.nowatch).json(), {"checkins": []})
+
+    def test_they_are_private_to_each_person(self):
+        self.save(self.nowatch, sleep_hours="under_5", sleep_quality="poor", activity="mostly_sitting")
+        self.save(self.watch)
+        mine = self.client.get(f"/me/checkins/{TODAY}", headers=self.watch).json()
+        self.assertEqual((mine["sleep_hours"], mine["sleep_quality"], mine["activity"]), (None, None, None))
+
+    def test_the_download_includes_them_and_deleting_the_account_removes_them(self):
+        self.save(self.nowatch, sleep_hours="6_7", sleep_quality="good", activity="moderately_active")
+        data = self.client.get("/me/export", headers=self.nowatch).json()["check_ins"][0]
+        self.assertEqual((data["sleep_hours"], data["sleep_quality"], data["activity"]), ("6_7", "good", "moderately_active"))
+        response = self.client.post("/me/delete", json={"password": PASSWORD}, headers=self.nowatch)
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(self.rows("select count(*) from checkins"), [(0,)])
 
 
 if __name__ == "__main__":

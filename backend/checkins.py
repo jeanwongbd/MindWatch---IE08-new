@@ -17,12 +17,16 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.auth import as_utc, current_user, get_db, now
-from backend.models import Checkin, User
+from backend.calibration import QUESTIONS
+from backend.models import CalibrationAnswers, Checkin, User
 
 LOGGER = logging.getLogger("mindwatch")
 
 # The word of the day comes from this fixed list. A frontend test keeps the screen in step with it.
 WORDS = tuple(json.loads((Path(__file__).resolve().parent / "checkin_words.json").read_text("utf-8"))["words"])
+
+# The by-hand sleep and activity answers use the same fixed options as the starting-point questions.
+MANUAL_FIELDS = ("sleep_hours", "sleep_quality", "activity")
 
 router = APIRouter(prefix="/me/checkins", tags=["checkins"])
 
@@ -32,6 +36,9 @@ class CheckinIn(BaseModel):
 
     stress: StrictInt = Field(..., ge=0, le=10)
     word: Optional[str] = None
+    sleep_hours: Optional[str] = None
+    sleep_quality: Optional[str] = None
+    activity: Optional[str] = None
     # The phone's offset from UTC in minutes (Singapore is +480). It decides what "today" means.
     utc_offset_minutes: int = Field(..., ge=-720, le=840)
 
@@ -41,6 +48,9 @@ def serialize(row: Checkin) -> dict:
         "date": row.date.isoformat(),
         "stress": row.stress,
         "word": row.word,
+        "sleep_hours": row.sleep_hours,
+        "sleep_quality": row.sleep_quality,
+        "activity": row.activity,
         "updated_at": as_utc(row.updated_at).isoformat(),
     }
 
@@ -51,6 +61,14 @@ def local_today(current: datetime, utc_offset_minutes: int) -> date:
 
 def own_checkin(db: Session, user: User, day: date) -> Optional[Checkin]:
     return db.scalar(select(Checkin).where(Checkin.user_id == user.id, Checkin.date == day))
+
+
+@router.get("/setup")
+def checkin_setup(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """What the check-in screen should ask. People with no smart watch also get sleep and activity."""
+    starting = db.get(CalibrationAnswers, user.id)
+    no_watch = starting is not None and starting.answers.get("wears_watch") == "no"
+    return {"asks_sleep_activity": no_watch}
 
 
 @router.put("/{day}")
@@ -69,6 +87,10 @@ def save_checkin(
         raise HTTPException(422, "You can only check in for today or yesterday.")
     if body.word is not None and body.word not in WORDS:
         raise HTTPException(422, "Pick a word from the list.")
+    for field in MANUAL_FIELDS:
+        value = getattr(body, field)
+        if value is not None and value not in QUESTIONS[field]["options"]:
+            raise HTTPException(422, "Pick an answer from the list.")
 
     row = own_checkin(db, user, day)
     created = row is None
@@ -79,6 +101,9 @@ def save_checkin(
             date=day,
             stress=body.stress,
             word=body.word,
+            sleep_hours=body.sleep_hours,
+            sleep_quality=body.sleep_quality,
+            activity=body.activity,
             created_at=current,
             updated_at=current,
         )
@@ -95,6 +120,8 @@ def save_checkin(
     if not created:
         row.stress = body.stress
         row.word = body.word
+        for field in MANUAL_FIELDS:
+            setattr(row, field, getattr(body, field))
         row.updated_at = current
         db.commit()
     response.status_code = 201 if created else 200

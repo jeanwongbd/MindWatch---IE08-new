@@ -194,7 +194,7 @@ class ExportMyData(AccountCase):
         self.assertEqual(data["account"]["id"], alice["id"])
         self.assertEqual(data["account"]["email"], "alice@example.com")
         self.assertEqual([(c["date"], c["stress"], c["word"]) for c in data["check_ins"]], [(YESTERDAY, 7, None), (TODAY, 3, "Calm")])
-        self.assertEqual(data["consent"]["version"], "v0-draft")
+        self.assertEqual(data["consent"]["version"], "v0-draft-2")
         self.assertEqual(data["starting_point_answers"]["answers"]["sleep_hours"], "6_7")
         # Nothing about Bob, anywhere in what Alice downloads.
         for secret in (bob["id"], "bob@example.com", "Lonely", "Sad"):

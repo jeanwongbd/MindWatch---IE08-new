@@ -15,7 +15,7 @@ from backend.settings import Settings, get_settings
 CODE = "test-invite-code"
 EMAIL = "Student@Example.com"
 PASSWORD = "correct horse battery"
-CONSENT = {"version": "v0-draft", "agreed": True, "adult_confirmed": True}
+CONSENT = {"version": "v0-draft-2", "agreed": True, "adult_confirmed": True}
 ANSWERS = {
     "usual_stress": 4,
     "sleep_hours": "6_7",
