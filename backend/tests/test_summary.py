@@ -425,5 +425,46 @@ class SupportSuggested(unittest.TestCase):
         self.assertFalse(build_summary(calmer, tomorrow)["support_suggested"])
 
 
+class WhyBlock(unittest.TestCase):
+    """What the Why tab is allowed to say, and when."""
+
+    def why(self, rows):
+        return build_summary(rows, TODAY_DATE)["why"]
+
+    def test_needs_7_days_first(self):
+        six = [row(i, 5) for i in range(6)]
+        self.assertEqual(self.why(six), {"ready": False, "have": 6, "need": 7, "today": None, "week": None})
+        self.assertTrue(self.why(six + [row(6, 5)])["ready"])
+
+    def test_nothing_yet(self):
+        self.assertEqual(self.why([]), {"ready": False, "have": 0, "need": 7, "today": None, "week": None})
+
+    def test_says_lower_than_usual(self):
+        rows = [row(i, 6) for i in range(1, 8)] + [row(0, 3)]
+        why = self.why(rows)
+        self.assertEqual(why["today"], "lower")
+
+    def test_today_higher_and_about(self):
+        base = [row(i, 4) for i in range(1, 8)]
+        self.assertEqual(self.why(base + [row(0, 9)])["today"], "higher")
+        self.assertEqual(self.why(base + [row(0, 4)])["today"], "about")
+
+    def test_no_today_without_a_check_in_today(self):
+        why = self.why([row(i, 4) for i in range(1, 8)])
+        self.assertTrue(why["ready"])
+        self.assertIsNone(why["today"])
+
+    def test_week_compared_with_usual(self):
+        older = [row(i, 9) for i in range(10, 20)]
+        recent = [row(i, 2) for i in range(0, 7)]
+        self.assertEqual(self.why(older + recent)["week"], "lower")
+        flat = [row(i, 5) for i in range(0, 14)]
+        self.assertEqual(self.why(flat)["week"], "about")
+
+    def test_count_is_distinct_days_and_capped_by_nothing_misleading(self):
+        # Check-ins on 3 different days, however many: not ready.
+        self.assertFalse(self.why([row(0, 5), row(1, 5), row(2, 5)])["ready"])
+
+
 if __name__ == "__main__":
     unittest.main()

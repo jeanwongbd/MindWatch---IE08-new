@@ -15,6 +15,14 @@ export interface Summary {
   streak: { current: number; best: number; status: "building" | "waiting" | "none" };
   /** True when the most recent check-ins have all been very high, so Home points to support. */
   support_suggested: boolean;
+  /** What the Why tab may say. Only a pattern against the person's own usual, never a cause. */
+  why: {
+    ready: boolean;
+    have: number;
+    need: number;
+    today: "higher" | "about" | "lower" | null;
+    week: "higher" | "about" | "lower" | null;
+  };
   /** Always null until a personal model has been trained and tested. */
   estimate: null;
 }

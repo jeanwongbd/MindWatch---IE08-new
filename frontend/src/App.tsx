@@ -8,6 +8,7 @@ import CreateAccountScreen from "./screens/CreateAccountScreen";
 import HomeScreen from "./screens/HomeScreen";
 import DailyCheckInScreen from "./screens/DailyCheckInScreen";
 import PersonalTrendsScreen from "./screens/PersonalTrendsScreen";
+import PersonalWhyScreen from "./screens/PersonalWhyScreen";
 import RemindersScreen from "./screens/RemindersScreen";
 import AccountScreen from "./screens/AccountScreen";
 import SupportScreen from "./screens/SupportScreen";
@@ -21,7 +22,7 @@ import { clearAnswers, loadAnswers, saveAnswers } from "./onboarding";
 import { clearToken, getToken, onSessionExpired, setToken } from "./session";
 import { useServerWaking } from "./useServerWaking";
 
-type View = "welcome" | "signin" | "calibration" | "consent" | "signup" | "demo" | "home" | "checkin" | "trends" | "reminders" | "account" | "support";
+type View = "welcome" | "signin" | "calibration" | "consent" | "signup" | "demo" | "home" | "checkin" | "trends" | "why" | "reminders" | "account" | "support";
 
 const EXPIRED = "Your session expired. Please sign in again.";
 
@@ -222,6 +223,7 @@ export default function App() {
         user={user}
         onCheckIn={() => setView("checkin")}
         onTrends={() => setView("trends")}
+        onWhy={() => setView("why")}
         onReminders={() => setView("reminders")}
         onAccount={() => setView("account")}
         onSupport={() => openSupport("home")}
@@ -241,6 +243,7 @@ export default function App() {
     );
   if (view === "support") return <SupportScreen onBack={() => setView(supportBack)} />;
   if (view === "trends" && user) return <PersonalTrendsScreen onBack={() => setView("home")} />;
+  if (view === "why" && user) return <PersonalWhyScreen onBack={() => setView("home")} />;
 
   return (
     <WelcomeScreen
