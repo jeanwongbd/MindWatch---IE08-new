@@ -8,8 +8,12 @@ import CreateAccountScreen from "./screens/CreateAccountScreen";
 import HomeScreen from "./screens/HomeScreen";
 import DailyCheckInScreen from "./screens/DailyCheckInScreen";
 import PersonalTrendsScreen from "./screens/PersonalTrendsScreen";
+import PersonalWhyScreen from "./screens/PersonalWhyScreen";
 import RemindersScreen from "./screens/RemindersScreen";
+import AccountScreen from "./screens/AccountScreen";
+import SupportScreen from "./screens/SupportScreen";
 import { reminders } from "./remindersService";
+import { clearPrefs } from "./reminders";
 import AuthFrame, { friendlyError, linkButtonClass, primaryButtonClass } from "./screens/AuthFrame";
 import { ACCOUNTS_ENABLED } from "./config";
 import { api, ApiError, type AuthSession, type AuthUser } from "./api";
@@ -18,7 +22,7 @@ import { clearAnswers, loadAnswers, saveAnswers } from "./onboarding";
 import { clearToken, getToken, onSessionExpired, setToken } from "./session";
 import { useServerWaking } from "./useServerWaking";
 
-type View = "welcome" | "signin" | "calibration" | "consent" | "signup" | "demo" | "home" | "checkin" | "trends" | "reminders";
+type View = "welcome" | "signin" | "calibration" | "consent" | "signup" | "demo" | "home" | "checkin" | "trends" | "why" | "reminders" | "account" | "support";
 
 const EXPIRED = "Your session expired. Please sign in again.";
 
@@ -30,6 +34,8 @@ export default function App() {
   const [answers, setAnswers] = useState<Answers>(() => loadAnswers());
   const [calibrationStep, setCalibrationStep] = useState(0);
   const [consented, setConsented] = useState(false);
+  // Where the Support page's Back button goes: it can be opened from Welcome, Home or Account.
+  const [supportBack, setSupportBack] = useState<View>("welcome");
   // On startup, a saved token has to be checked with the server before we know who is signed in.
   const [checking, setChecking] = useState(() => ACCOUNTS_ENABLED && getToken() !== null);
   const [checkError, setCheckError] = useState("");
@@ -109,6 +115,25 @@ export default function App() {
     clearToken();
     setUser(null);
     setNotice("");
+    setView("welcome");
+  }
+
+  function openSupport(from: View) {
+    setSupportBack(from);
+    setView("support");
+  }
+
+  /** The account and everything stored about the person are gone from the server. Forget them here too. */
+  async function accountDeleted() {
+    const id = user?.id;
+    await reminders.cancelAll().catch(() => {});
+    if (id) clearPrefs(id);
+    clearAnswers();
+    setAnswers({});
+    setConsented(false);
+    clearToken();
+    setUser(null);
+    setNotice("Your account and data have been deleted.");
     setView("welcome");
   }
 
@@ -198,19 +223,35 @@ export default function App() {
         user={user}
         onCheckIn={() => setView("checkin")}
         onTrends={() => setView("trends")}
+        onWhy={() => setView("why")}
         onReminders={() => setView("reminders")}
+        onAccount={() => setView("account")}
+        onSupport={() => openSupport("home")}
         onSignOut={signOut}
       />
     );
   if (view === "checkin" && user) return <DailyCheckInScreen userId={user.id} onBack={() => setView("home")} />;
   if (view === "reminders" && user) return <RemindersScreen userId={user.id} onBack={() => setView("home")} />;
+  if (view === "account" && user)
+    return (
+      <AccountScreen
+        user={user}
+        onBack={() => setView("home")}
+        onSupport={() => openSupport("account")}
+        onDeleted={accountDeleted}
+      />
+    );
+  if (view === "support") return <SupportScreen onBack={() => setView(supportBack)} />;
   if (view === "trends" && user) return <PersonalTrendsScreen onBack={() => setView("home")} />;
+  if (view === "why" && user) return <PersonalWhyScreen onBack={() => setView("home")} />;
 
   return (
     <WelcomeScreen
       onViewDemo={() => setView("demo")}
       onSignIn={ACCOUNTS_ENABLED ? () => setView("signin") : undefined}
       onCreateAccount={ACCOUNTS_ENABLED ? startOnboarding : undefined}
+      onSupport={ACCOUNTS_ENABLED ? () => openSupport("welcome") : undefined}
+      notice={notice}
     />
   );
 }

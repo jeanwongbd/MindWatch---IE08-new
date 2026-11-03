@@ -381,5 +381,90 @@ class StreakRoute(unittest.TestCase):
         self.assertEqual(self.summary(self.alice, 3)["streak"]["current"], 4)
 
 
+class SupportSuggested(unittest.TestCase):
+    """The calm "there are people you can talk to" message on Home: when to show it."""
+
+    def flag(self, *stresses_by_days_ago):
+        rows = [row(days_ago_, stress) for days_ago_, stress in stresses_by_days_ago]
+        return build_summary(rows, TODAY_DATE)["support_suggested"]
+
+    def test_three_recent_check_ins_all_at_8_or_more(self):
+        self.assertTrue(self.flag((0, 8), (1, 9), (2, 10)))
+
+    def test_the_threshold_is_exactly_8(self):
+        self.assertTrue(self.flag((0, 8), (1, 8), (2, 8)))
+        self.assertFalse(self.flag((0, 8), (1, 8), (2, 7)))
+
+    def test_two_high_check_ins_are_not_enough(self):
+        self.assertFalse(self.flag((0, 9), (1, 10)))
+
+    def test_one_lower_check_in_among_the_newest_three_stops_it(self):
+        self.assertFalse(self.flag((0, 5), (1, 8), (2, 9), (3, 10)))  # the newest three are 5, 8, 9
+
+    def test_older_lower_check_ins_do_not_stop_it(self):
+        self.assertTrue(self.flag((0, 8), (1, 9), (2, 10), (3, 1), (4, 0)))
+
+    def test_the_check_ins_must_all_be_within_the_last_week(self):
+        self.assertTrue(self.flag((0, 9), (3, 9), (6, 9)))  # day 6 is the edge of the week
+        self.assertFalse(self.flag((0, 9), (3, 9), (7, 9)))  # day 7 is outside it
+
+    def test_the_days_need_not_be_consecutive(self):
+        self.assertTrue(self.flag((0, 10), (2, 9), (5, 8)))
+
+    def test_nothing_without_check_ins_and_it_never_gives_an_estimate(self):
+        s = build_summary([], TODAY_DATE)
+        self.assertIs(s["support_suggested"], False)
+        self.assertIsNone(s["estimate"])
+
+    def test_it_ends_once_the_newest_check_ins_come_down(self):
+        high = [row(2, 9), row(1, 9), row(0, 9)]
+        self.assertTrue(build_summary(high, TODAY_DATE)["support_suggested"])
+        # A lower check-in the next day pushes the oldest of the three out of the newest three.
+        tomorrow = TODAY_DATE + timedelta(days=1)
+        calmer = high + [SimpleNamespace(date=tomorrow, stress=4, word=None)]
+        self.assertFalse(build_summary(calmer, tomorrow)["support_suggested"])
+
+
+class WhyBlock(unittest.TestCase):
+    """What the Why tab is allowed to say, and when."""
+
+    def why(self, rows):
+        return build_summary(rows, TODAY_DATE)["why"]
+
+    def test_needs_7_days_first(self):
+        six = [row(i, 5) for i in range(6)]
+        self.assertEqual(self.why(six), {"ready": False, "have": 6, "need": 7, "today": None, "week": None})
+        self.assertTrue(self.why(six + [row(6, 5)])["ready"])
+
+    def test_nothing_yet(self):
+        self.assertEqual(self.why([]), {"ready": False, "have": 0, "need": 7, "today": None, "week": None})
+
+    def test_says_lower_than_usual(self):
+        rows = [row(i, 6) for i in range(1, 8)] + [row(0, 3)]
+        why = self.why(rows)
+        self.assertEqual(why["today"], "lower")
+
+    def test_today_higher_and_about(self):
+        base = [row(i, 4) for i in range(1, 8)]
+        self.assertEqual(self.why(base + [row(0, 9)])["today"], "higher")
+        self.assertEqual(self.why(base + [row(0, 4)])["today"], "about")
+
+    def test_no_today_without_a_check_in_today(self):
+        why = self.why([row(i, 4) for i in range(1, 8)])
+        self.assertTrue(why["ready"])
+        self.assertIsNone(why["today"])
+
+    def test_week_compared_with_usual(self):
+        older = [row(i, 9) for i in range(10, 20)]
+        recent = [row(i, 2) for i in range(0, 7)]
+        self.assertEqual(self.why(older + recent)["week"], "lower")
+        flat = [row(i, 5) for i in range(0, 14)]
+        self.assertEqual(self.why(flat)["week"], "about")
+
+    def test_count_is_distinct_days_and_capped_by_nothing_misleading(self):
+        # Check-ins on 3 different days, however many: not ready.
+        self.assertFalse(self.why([row(0, 5), row(1, 5), row(2, 5)])["ready"])
+
+
 if __name__ == "__main__":
     unittest.main()

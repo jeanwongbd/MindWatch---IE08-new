@@ -17,6 +17,8 @@ const EMPTY: Summary = {
   today_vs_usual: null,
   recent_words: [],
   streak: { current: 0, best: 0, status: "none" },
+  support_suggested: false,
+  why: { ready: false, have: 0, need: 7, today: null, week: null },
   estimate: null,
 };
 

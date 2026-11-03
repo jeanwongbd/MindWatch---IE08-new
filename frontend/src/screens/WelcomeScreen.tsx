@@ -3,9 +3,13 @@ interface Props {
   /** Shown only when accounts are switched on. */
   onSignIn?: () => void;
   onCreateAccount?: () => void;
+  /** Shown only when accounts are switched on. */
+  onSupport?: () => void;
+  /** A short message, for example after an account has been deleted. */
+  notice?: string;
 }
 
-export default function WelcomeScreen({ onViewDemo, onSignIn, onCreateAccount }: Props) {
+export default function WelcomeScreen({ onViewDemo, onSignIn, onCreateAccount, onSupport, notice }: Props) {
   return (
     <div
       style={{ fontFamily: "var(--font-body)" }}
@@ -17,6 +21,11 @@ export default function WelcomeScreen({ onViewDemo, onSignIn, onCreateAccount }:
           Compare how stressed you say you feel with what a wearable measures. This is not medical
           advice and cannot diagnose anything.
         </p>
+        {notice && (
+          <p role="status" className="text-xs text-accent-calm font-mono bg-accent-calm/10 px-2 py-1 rounded">
+            {notice}
+          </p>
+        )}
         {onCreateAccount && (
           <button
             onClick={onCreateAccount}
@@ -46,6 +55,13 @@ export default function WelcomeScreen({ onViewDemo, onSignIn, onCreateAccount }:
         >
           View demo
         </button>
+        {onSupport && (
+          <div>
+            <button type="button" onClick={onSupport} className="text-xs text-accent-calm hover:underline">
+              Need support?
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
