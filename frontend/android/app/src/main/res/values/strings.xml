@@ -4,4 +4,5 @@
     <string name="title_activity_main">MainActivity</string>
     <string name="package_name">com.mindwatch.app</string>
     <string name="custom_url_scheme">com.mindwatch.app</string>
+    <string name="background_notification_title">Measuring your health and fitness data.</string>    <string name="background_notification_description">The app is running in the background.</string>    <string name="privacy_policy_url">https://example.com/privacy-policy</string>
 </resources>

@@ -14,6 +14,7 @@ const phone = vi.hoisted(() => ({
 vi.mock("@capacitor/local-notifications", () => ({ LocalNotifications: phone }));
 
 const PREFS_KEY = `mindwatch.reminders.${USER.id}`;
+const WATCH_KEY = `mindwatch.watch.${USER.id}`;
 const DRAFT_KEY = "mindwatch.onboarding";
 const ALL_IDS = Array.from({ length: 14 }, (_, i) => 4100 + i);
 
@@ -312,6 +313,7 @@ describe("deleting my account", () => {
   it("forgets everything about the person on this device", async () => {
     localStorage.setItem(PREFS_KEY, JSON.stringify({ enabled: true, time: "20:00", asked: true }));
     localStorage.setItem(DRAFT_KEY, JSON.stringify({ usual_stress: 4 }));
+    localStorage.setItem(WATCH_KEY, JSON.stringify({ connected: true }));
     (globalThis as { Capacitor?: unknown }).Capacitor = { isNativePlatform: () => true };
     await openDelete();
     phone.cancel.mockClear();
@@ -321,6 +323,7 @@ describe("deleting my account", () => {
     expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
     expect(localStorage.getItem(PREFS_KEY)).toBeNull();
     expect(localStorage.getItem(DRAFT_KEY)).toBeNull();
+    expect(localStorage.getItem(WATCH_KEY)).toBeNull();
     // Every scheduled reminder is cancelled, so none can fire for a person who no longer has an account.
     expect(phone.cancel.mock.calls.flatMap((c) => c[0].notifications.map((n: { id: number }) => n.id))).toEqual(ALL_IDS);
   });

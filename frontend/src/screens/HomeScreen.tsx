@@ -3,6 +3,7 @@ import type { AuthUser } from "../api";
 import { fetchSummary, type Summary } from "../summary";
 import { reminders } from "../remindersService";
 import { ReminderOffer, WebReminderBanner } from "./ReminderPrompts";
+import WatchCard from "./WatchCard";
 import AuthFrame, { friendlyError, linkButtonClass, primaryButtonClass } from "./AuthFrame";
 
 interface Props {
@@ -11,6 +12,7 @@ interface Props {
   onTrends: () => void;
   onWhy: () => void;
   onReminders: () => void;
+  onWatch: () => void;
   onAccount: () => void;
   onSupport: () => void;
   onSignOut: () => void;
@@ -51,7 +53,7 @@ const secondaryButtonClass =
   "w-full py-3.5 border border-border text-ink rounded-2xl hover:opacity-90 active:opacity-80 transition-opacity";
 
 /** The signed-in Home. Plain descriptions of the person's own check-ins, never a cause or a prediction. */
-export default function HomeScreen({ user, onCheckIn, onTrends, onWhy, onReminders, onAccount, onSupport, onSignOut }: Props) {
+export default function HomeScreen({ user, onCheckIn, onTrends, onWhy, onReminders, onWatch, onAccount, onSupport, onSignOut }: Props) {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
@@ -146,6 +148,8 @@ export default function HomeScreen({ user, onCheckIn, onTrends, onWhy, onReminde
               </button>
             </div>
           )}
+
+          <WatchCard userId={user.id} onOpen={onWatch} />
 
           <WebReminderBanner userId={user.id} todayDone={summary.today_checkin !== null} />
           {summary.count >= 1 && <ReminderOffer userId={user.id} />}

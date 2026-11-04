@@ -13,7 +13,15 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from backend.auth import as_utc, current_user, get_db, now, require_password
-from backend.models import CalibrationAnswers, Checkin, Consent, LoginFailure, User, UserSession
+from backend.models import (
+    CalibrationAnswers,
+    Checkin,
+    Consent,
+    DailyMeasurement,
+    LoginFailure,
+    User,
+    UserSession,
+)
 
 LOGGER = logging.getLogger("mindwatch")
 
@@ -40,6 +48,9 @@ def export_my_data(request: Request, user: User = Depends(current_user), db: Ses
     consent = db.scalar(select(Consent).where(Consent.user_id == user.id))
     answers = db.scalar(select(CalibrationAnswers).where(CalibrationAnswers.user_id == user.id))
     checkins = db.scalars(select(Checkin).where(Checkin.user_id == user.id).order_by(Checkin.date)).all()
+    measurements = db.scalars(
+        select(DailyMeasurement).where(DailyMeasurement.user_id == user.id).order_by(DailyMeasurement.date)
+    ).all()
     body = {
         "exported_at": _when(now(request)),
         "account": {"id": user.id, "email": user.email, "created_at": _when(user.created_at)},
@@ -73,6 +84,16 @@ def export_my_data(request: Request, user: User = Depends(current_user), db: Ses
             }
             for c in checkins
         ],
+        "watch_data": [
+            {
+                "date": m.date.isoformat(),
+                "steps": m.steps,
+                "sleep_minutes": m.sleep_minutes,
+                "heart_rate_avg": m.heart_rate_avg,
+                "saved_at": _when(m.updated_at),
+            }
+            for m in measurements
+        ],
     }
     return JSONResponse(body, headers={"Content-Disposition": 'attachment; filename="mindwatch-my-data.json"'})
 
@@ -89,7 +110,7 @@ def delete_my_account(
     user_id, email = user.id, user.email
     # Each table is cleared by name, not left to the database cascade, so that every row goes
     # on any database. The user row is last because the others point at it.
-    for model in (Checkin, CalibrationAnswers, Consent, UserSession):
+    for model in (Checkin, DailyMeasurement, CalibrationAnswers, Consent, UserSession):
         db.execute(delete(model).where(model.user_id == user_id))
     db.execute(delete(LoginFailure).where(LoginFailure.email == email))
     db.execute(delete(User).where(User.id == user_id))
