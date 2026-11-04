@@ -263,6 +263,12 @@ class ByHandSleepAndActivity(unittest.TestCase):
         self.assertIs(self.asks(self.nowatch), True)
         self.assertIs(self.asks(self.watch), False)
 
+    def test_the_setup_says_who_has_a_watch_to_connect(self):
+        # People with a watch can connect its data; people without one answer the by-hand questions.
+        for who, expected in ((self.watch, (False, True)), (self.nowatch, (True, False))):
+            setup = self.client.get("/me/checkins/setup", headers=who).json()
+            self.assertEqual((setup["asks_sleep_activity"], setup["wears_watch"]), expected)
+
     def test_setup_needs_a_login(self):
         self.assertEqual(self.client.get("/me/checkins/setup").status_code, 401)
 

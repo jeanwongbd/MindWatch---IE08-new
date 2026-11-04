@@ -1,46 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
 
-    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Android 13 and later ask the person before any notification is shown. -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <!-- Reminders are inexact (a few minutes late is fine), so the exact-alarm permission the
          notifications plugin declares is removed. Nobody is sent to "Alarms & reminders". -->
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" tools:node="remove" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" tools:node="remove"/>
+    <!-- The Health Connect plugin also brings in background-job permissions and services. MindWatch only
+         reads three kinds of watch data when the app is opened, so all of that is removed. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" tools:node="remove"/>
+    <uses-permission android:name="com.google.android.gms.permission.ACTIVITY_RECOGNITION" tools:node="remove"/>
 
-    <application
-        android:allowBackup="true"
-        android:icon="@android:mipmap/sym_def_app_icon"
-        android:label="@string/app_name"
-        android:roundIcon="@android:mipmap/sym_def_app_icon"
-        android:supportsRtl="true"
-        android:theme="@style/AppTheme">
+    <application android:allowBackup="true" android:icon="@android:mipmap/sym_def_app_icon" android:label="@string/app_name" android:roundIcon="@android:mipmap/sym_def_app_icon" android:supportsRtl="true" android:theme="@style/AppTheme">
 
-        <activity
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
-            android:name=".MainActivity"
-            android:label="@string/title_activity_main"
-            android:theme="@style/AppTheme.NoActionBarLaunch"
-            android:launchMode="singleTop"
-            android:exported="true">
+        <activity android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode" android:name=".MainActivity" android:label="@string/title_activity_main" android:theme="@style/AppTheme.NoActionBarLaunch" android:launchMode="singleTop" android:exported="true">
 
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
         </activity>
 
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.fileprovider"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths"></meta-data>
+        <receiver android:name="com.outsystems.plugins.healthfitness.background.alarms.AlarmReceiver" tools:node="remove"/>
+        <receiver android:name="com.outsystems.plugins.healthfitness.background.transition.ActivityTransitionReceiver" tools:node="remove"/>
+        <service android:name="com.outsystems.plugins.healthfitness.background.services.BackgroundListenerService" tools:node="remove"/>
+        <service android:name="com.outsystems.plugins.healthfitness.background.services.HealthRecordService" tools:node="remove"/>
+        <activity android:name="com.outsystems.plugins.healthfitness.background.ClickActivity" tools:node="remove"/>
+
+        <provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.fileprovider" android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths"/>
         </provider>
     </application>
 
+    <uses-permission android:name="android.permission.health.READ_HEART_RATE"/>
+    <uses-permission android:name="android.permission.health.READ_STEPS"/>
+    <uses-permission android:name="android.permission.health.READ_SLEEP"/>
 </manifest>

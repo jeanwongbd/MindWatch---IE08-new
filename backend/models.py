@@ -9,6 +9,7 @@ from sqlalchemy import (
     CheckConstraint,
     Date,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     SmallInteger,
@@ -98,5 +99,36 @@ class Checkin(Base):
     sleep_hours: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
     sleep_quality: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
     activity: Mapped[Optional[str]] = mapped_column(String(24), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class DailyMeasurement(Base):
+    """One day of watch data per person, read from Health Connect on the phone.
+
+    The day is the phone's local date. Any value can be empty: empty means "not available" (the
+    watch recorded nothing), which is not the same as zero.
+    """
+
+    __tablename__ = "daily_measurements"
+    __table_args__ = (
+        UniqueConstraint("user_id", "date", name="uq_daily_measurements_user_date"),
+        CheckConstraint("steps IS NULL OR (steps >= 0 AND steps <= 200000)", name="ck_measurements_steps"),
+        CheckConstraint(
+            "sleep_minutes IS NULL OR (sleep_minutes >= 0 AND sleep_minutes <= 1440)", name="ck_measurements_sleep"
+        ),
+        CheckConstraint(
+            "heart_rate_avg IS NULL OR (heart_rate_avg >= 20 AND heart_rate_avg <= 250)", name="ck_measurements_hr"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    date: Mapped[dt.date] = mapped_column(Date, nullable=False)
+    steps: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    sleep_minutes: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
+    heart_rate_avg: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

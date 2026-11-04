@@ -10,10 +10,12 @@ import DailyCheckInScreen from "./screens/DailyCheckInScreen";
 import PersonalTrendsScreen from "./screens/PersonalTrendsScreen";
 import PersonalWhyScreen from "./screens/PersonalWhyScreen";
 import RemindersScreen from "./screens/RemindersScreen";
+import WatchScreen from "./screens/WatchScreen";
 import AccountScreen from "./screens/AccountScreen";
 import SupportScreen from "./screens/SupportScreen";
 import { reminders } from "./remindersService";
 import { clearPrefs } from "./reminders";
+import { clearWatchPrefs } from "./watch";
 import AuthFrame, { friendlyError, linkButtonClass, primaryButtonClass } from "./screens/AuthFrame";
 import { ACCOUNTS_ENABLED } from "./config";
 import { api, ApiError, type AuthSession, type AuthUser } from "./api";
@@ -22,7 +24,7 @@ import { clearAnswers, loadAnswers, saveAnswers } from "./onboarding";
 import { clearToken, getToken, onSessionExpired, setToken } from "./session";
 import { useServerWaking } from "./useServerWaking";
 
-type View = "welcome" | "signin" | "calibration" | "consent" | "signup" | "demo" | "home" | "checkin" | "trends" | "why" | "reminders" | "account" | "support";
+type View = "welcome" | "signin" | "calibration" | "consent" | "signup" | "demo" | "home" | "checkin" | "trends" | "why" | "reminders" | "watch" | "account" | "support";
 
 const EXPIRED = "Your session expired. Please sign in again.";
 
@@ -127,7 +129,10 @@ export default function App() {
   async function accountDeleted() {
     const id = user?.id;
     await reminders.cancelAll().catch(() => {});
-    if (id) clearPrefs(id);
+    if (id) {
+      clearPrefs(id);
+      clearWatchPrefs(id);
+    }
     clearAnswers();
     setAnswers({});
     setConsented(false);
@@ -225,6 +230,7 @@ export default function App() {
         onTrends={() => setView("trends")}
         onWhy={() => setView("why")}
         onReminders={() => setView("reminders")}
+        onWatch={() => setView("watch")}
         onAccount={() => setView("account")}
         onSupport={() => openSupport("home")}
         onSignOut={signOut}
@@ -232,6 +238,7 @@ export default function App() {
     );
   if (view === "checkin" && user) return <DailyCheckInScreen userId={user.id} onBack={() => setView("home")} />;
   if (view === "reminders" && user) return <RemindersScreen userId={user.id} onBack={() => setView("home")} />;
+  if (view === "watch" && user) return <WatchScreen userId={user.id} onBack={() => setView("home")} />;
   if (view === "account" && user)
     return (
       <AccountScreen

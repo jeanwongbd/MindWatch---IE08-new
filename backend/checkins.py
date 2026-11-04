@@ -67,8 +67,9 @@ def own_checkin(db: Session, user: User, day: date) -> Optional[Checkin]:
 def checkin_setup(user: User = Depends(current_user), db: Session = Depends(get_db)):
     """What the check-in screen should ask. People with no smart watch also get sleep and activity."""
     starting = db.get(CalibrationAnswers, user.id)
-    no_watch = starting is not None and starting.answers.get("wears_watch") == "no"
-    return {"asks_sleep_activity": no_watch}
+    answer = starting.answers.get("wears_watch") if starting is not None else None
+    # People with a watch can connect its data; people without one answer the by-hand questions.
+    return {"asks_sleep_activity": answer == "no", "wears_watch": answer == "yes"}
 
 
 @router.put("/{day}")

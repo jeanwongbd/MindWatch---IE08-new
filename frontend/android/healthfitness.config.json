@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "STEPS": "Read",
+    "SLEEP": "Read",
+    "HEART_RATE": "Read"
+  },
+  "disableBackgroundJobs": true,
+  "disableReadHealthDataHistory": true,
+  "privacyPolicyUrl": "https://example.com/privacy-policy"
+}

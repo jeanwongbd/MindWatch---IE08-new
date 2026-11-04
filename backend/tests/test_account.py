@@ -50,6 +50,13 @@ class AccountCase(unittest.TestCase):
         body = {"stress": stress, "word": word, "utc_offset_minutes": 0}
         self.assertIn(self.client.put(f"/me/checkins/{day}", json=body, headers=who["headers"]).status_code, (200, 201))
 
+    def send_watch(self, who, day=TODAY, steps=5000, sleep_minutes=420, heart_rate_avg=68.5):
+        body = {
+            "utc_offset_minutes": 0,
+            "days": [{"date": day, "steps": steps, "sleep_minutes": sleep_minutes, "heart_rate_avg": heart_rate_avg}],
+        }
+        self.assertEqual(self.client.put("/me/measurements", json=body, headers=who["headers"]).status_code, 200)
+
     def delete_account(self, who, password=PASSWORD):
         return self.client.post("/me/delete", json={"password": password}, headers=who["headers"])
 
@@ -81,16 +88,19 @@ class DeleteAccount(AccountCase):
         for who in (alice, bob):
             self.check_in(who, TODAY, 6, "Tired")
             self.check_in(who, YESTERDAY, 4, "Calm")
+            self.send_watch(who, TODAY)
+            self.send_watch(who, YESTERDAY)
             self.token_of(who["email"])  # a second session
         self.login(alice["email"], "not the password!!")  # a failed sign-in is recorded too
         self.assertGreater(self.count("login_failures", "where email = ?", (alice["email"],)), 0)
         self.assertEqual(self.everything_mentioning(alice["id"], alice["email"]).count("checkins.user_id"), 2)
+        self.assertEqual(self.everything_mentioning(alice["id"]).count("daily_measurements.user_id"), 2)
 
         self.assertEqual(self.delete_account(alice).status_code, 204)
 
         # Not one row, in any table, mentions Alice any more: by ID or by email.
         self.assertEqual(self.everything_mentioning(alice["id"], alice["email"]), [])
-        for table in ("users", "sessions", "consents", "calibration_answers", "checkins"):
+        for table in ("users", "sessions", "consents", "calibration_answers", "checkins", "daily_measurements"):
             self.assertEqual(self.count(table, "where " + ("id" if table == "users" else "user_id") + " = ?", (alice["id"],)), 0, table)
         self.assertEqual(self.count("login_failures", "where email = ?", (alice["email"],)), 0)
 
@@ -187,6 +197,8 @@ class ExportMyData(AccountCase):
         self.check_in(alice, YESTERDAY, 7, None)
         self.check_in(bob, TODAY, 9, "Lonely")
         self.check_in(bob, YESTERDAY, 8, "Sad")
+        self.send_watch(alice, TODAY, steps=4321, sleep_minutes=435, heart_rate_avg=70.5)
+        self.send_watch(bob, TODAY, steps=9999, sleep_minutes=111, heart_rate_avg=99.5)
 
         response = self.client.get("/me/export", headers=alice["headers"])
         self.assertEqual(response.status_code, 200)
@@ -196,8 +208,12 @@ class ExportMyData(AccountCase):
         self.assertEqual([(c["date"], c["stress"], c["word"]) for c in data["check_ins"]], [(YESTERDAY, 7, None), (TODAY, 3, "Calm")])
         self.assertEqual(data["consent"]["version"], "v0-draft-2")
         self.assertEqual(data["starting_point_answers"]["answers"]["sleep_hours"], "6_7")
+        self.assertEqual(
+            [(w["date"], w["steps"], w["sleep_minutes"], w["heart_rate_avg"]) for w in data["watch_data"]],
+            [(TODAY, 4321, 435, 70.5)],
+        )
         # Nothing about Bob, anywhere in what Alice downloads.
-        for secret in (bob["id"], "bob@example.com", "Lonely", "Sad"):
+        for secret in (bob["id"], "bob@example.com", "Lonely", "Sad", "99.5"):
             self.assertNotIn(secret, response.text)
 
     def test_export_leaves_out_passwords_and_security_records(self):
@@ -208,7 +224,8 @@ class ExportMyData(AccountCase):
         for private in ("argon2", "password", "token", "sessions", "login_failures", "failed_at"):
             self.assertNotIn(private, text.lower(), private)
         self.assertEqual(
-            sorted(json.loads(text)), ["account", "check_ins", "consent", "exported_at", "starting_point_answers"]
+            sorted(json.loads(text)),
+            ["account", "check_ins", "consent", "exported_at", "starting_point_answers", "watch_data"],
         )
 
     def test_export_is_a_download_and_works_with_no_check_ins(self):
