@@ -17,6 +17,7 @@ jobs:
           cache-dependency-path: backend/requirements-dev.txt
       - run: pip install -r backend/requirements-dev.txt
       - run: python -m unittest discover -s backend/tests -t .
+      - run: python -m unittest discover -s ml/tests -t .
 
   frontend:
     runs-on: ubuntu-latest
