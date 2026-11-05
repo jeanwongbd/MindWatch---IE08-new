@@ -1,7 +1,10 @@
-import { cleanup, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TOKEN_KEY, callsTo, loadApp, stubBackend, tap, type Routes } from "./test/accountsHelpers";
 import type { Summary } from "./summary";
+import { utcOffsetMinutes } from "./checkinWords";
+
+const TRY = "Try a 30-day sample account";
 
 const SAMPLE_USER = { id: "s-1", email: "sample-account@mindwatch.example.com", is_sample: true };
 const SAMPLE_SESSION = { token: "sample-token", expires_at: "2026-01-16T00:00:00+00:00", user: SAMPLE_USER };
@@ -31,57 +34,128 @@ afterEach(() => {
 });
 
 describe("sample account", () => {
-  it("opens from the Welcome screen and says it is sample data", async () => {
-    const routes: Routes = {
-      "POST /auth/sample": { body: SAMPLE_SESSION },
-      "GET /me/summary": { body: SUMMARY },
-    };
-    stubBackend(routes);
-    await loadApp();
-    tap("Look at a sample account");
-    expect(await screen.findByText(/Sample data\./)).toBeTruthy();
-    expect(localStorage.getItem(TOKEN_KEY)).toBe("sample-token");
-    await screen.findByText(/Your usual: 1.2 out of 10/);
-  });
-
-  it("hides everything that would change something", async () => {
+  it("opens from the Welcome screen as a sample account", async () => {
     stubBackend({
       "POST /auth/sample": { body: SAMPLE_SESSION },
       "GET /me/summary": { body: SUMMARY },
     });
     await loadApp();
-    tap("Look at a sample account");
+    tap(TRY);
+    expect(await screen.findByText(/Sample account\./)).toBeTruthy();
+    expect(localStorage.getItem(TOKEN_KEY)).toBe("sample-token");
     await screen.findByText(/Your usual: 1.2 out of 10/);
-    for (const name of [/Check in today/, /Change today's check-in/, "Reminders", "Account"]) {
-      expect(screen.queryByRole("button", { name })).toBeNull();
-    }
-    expect(screen.getByRole("button", { name: "See your trends" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Sign out" })).toBeTruthy();
   });
 
-  it("does not set up reminders for the sample", async () => {
+  it("sample_sends_utc_offset", async () => {
     const spy = stubBackend({
       "POST /auth/sample": { body: SAMPLE_SESSION },
       "GET /me/summary": { body: SUMMARY },
     });
     await loadApp();
-    tap("Look at a sample account");
+    tap(TRY);
     await screen.findByText(/Your usual: 1.2 out of 10/);
-    expect(callsTo(spy, "GET /me/summary").length).toBe(1);
-    expect(screen.queryByText(/reminder/i)).toBeNull();
+    const [, init] = callsTo(spy, "POST /auth/sample")[0];
+    expect(JSON.parse(String(init?.body))).toEqual({ utc_offset_minutes: utcOffsetMinutes() });
+  });
+
+  it("sample_shows_every_feature", async () => {
+    stubBackend({
+      "POST /auth/sample": { body: SAMPLE_SESSION },
+      "GET /me/summary": { body: SUMMARY },
+    });
+    await loadApp();
+    tap(TRY);
+    await screen.findByText(/Your usual: 1.2 out of 10/);
+    expect(screen.getByRole("button", { name: /Change today's check-in/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Reminders" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Account" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "See your trends" })).toBeTruthy();
+  });
+
+  it("sample_banner_says_private_copy", async () => {
+    stubBackend({
+      "POST /auth/sample": { body: SAMPLE_SESSION },
+      "GET /me/summary": { body: SUMMARY },
+    });
+    await loadApp();
+    tap(TRY);
+    const banner = await screen.findByText(/Sample account\./);
+    expect(banner.textContent).toMatch(/private to you/);
+    expect(banner.textContent).toMatch(/deleted after a day/);
+    expect(screen.queryByText(/Signed in as/)).toBeNull();
+  });
+
+  it("sample_delete_needs_no_password", async () => {
+    const spy = stubBackend({
+      "POST /auth/sample": { body: SAMPLE_SESSION },
+      "GET /me/summary": { body: SUMMARY },
+      "POST /me/delete": { status: 204 },
+    });
+    await loadApp();
+    tap(TRY);
+    await screen.findByText(/Your usual: 1.2 out of 10/);
+    tap("Account");
+    tap("Delete my account");
+    expect(screen.queryByLabelText(/password/i)).toBeNull();
+    tap("Delete everything");
+    await waitFor(() => expect(callsTo(spy, "POST /me/delete").length).toBe(1));
+    const [, init] = callsTo(spy, "POST /me/delete")[0];
+    expect(JSON.parse(String(init?.body))).toEqual({});
+    await screen.findByText(/have been deleted/);
+  });
+
+  it("sample_password_change_hidden", async () => {
+    stubBackend({
+      "POST /auth/sample": { body: SAMPLE_SESSION },
+      "GET /me/summary": { body: SUMMARY },
+    });
+    await loadApp();
+    tap(TRY);
+    await screen.findByText(/Your usual: 1.2 out of 10/);
+    tap("Account");
+    expect(screen.getByText("Sample accounts have no password.")).toBeTruthy();
+    expect(screen.queryByRole("form", { name: "Change password" })).toBeNull();
+    expect(screen.queryByLabelText("Current password")).toBeNull();
+  });
+
+  it("normal_account_still_needs_password_to_delete", async () => {
+    localStorage.setItem(TOKEN_KEY, "t");
+    const spy = stubBackend({
+      "GET /auth/me": { body: { id: "u-1", email: "student@example.com" } },
+      "GET /me/summary": { body: SUMMARY },
+      "POST /me/delete": { status: 204 },
+    });
+    await loadApp();
+    await screen.findByText(/Your usual: 1.2 out of 10/);
+    tap("Account");
+    expect(screen.getByRole("form", { name: "Change password" })).toBeTruthy();
+    tap("Delete my account");
+    fireEvent.change(screen.getByLabelText("Type your password to confirm"), { target: { value: "hunter2hunter2" } });
+    tap("Delete everything");
+    await waitFor(() => expect(callsTo(spy, "POST /me/delete").length).toBe(1));
+    const [, init] = callsTo(spy, "POST /me/delete")[0];
+    expect(JSON.parse(String(init?.body))).toEqual({ password: "hunter2hunter2" });
   });
 
   it("shows a message and stays on Welcome when the sample is not set up", async () => {
     stubBackend({ "POST /auth/sample": { status: 404, body: { detail: "The sample account is not set up." } } });
     await loadApp();
-    tap("Look at a sample account");
+    tap(TRY);
     await waitFor(() => expect(screen.getByRole("status").textContent).toMatch(/not set up/));
+    expect(screen.getByRole("button", { name: "Get started" })).toBeTruthy();
+  });
+
+  it("sample_429_shows_message", async () => {
+    stubBackend({ "POST /auth/sample": { status: 429, body: { detail: "Lots of people are trying the sample. Try again soon." } } });
+    await loadApp();
+    tap(TRY);
+    await waitFor(() => expect(screen.getByRole("status").textContent).toMatch(/Lots of people/));
     expect(screen.getByRole("button", { name: "Get started" })).toBeTruthy();
   });
 
   it("is not offered when accounts are off", async () => {
     await loadApp(false);
-    expect(screen.queryByRole("button", { name: "Look at a sample account" })).toBeNull();
+    expect(screen.queryByRole("button", { name: TRY })).toBeNull();
   });
 
   it("a normal account still sees its actions and no sample banner", async () => {
@@ -98,7 +172,7 @@ describe("sample account", () => {
     });
     await loadApp();
     await screen.findByText(/Your usual: 1.2 out of 10/);
-    expect(screen.queryByText(/Sample data\./)).toBeNull();
+    expect(screen.queryByText(/Sample account\./)).toBeNull();
     expect(screen.getByRole("button", { name: /Change today's check-in/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Account" })).toBeTruthy();
   });

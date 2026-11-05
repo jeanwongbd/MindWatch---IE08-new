@@ -5,23 +5,21 @@ lockout, and removes every row about the person at once.
 """
 import logging
 from datetime import datetime
+from typing import Optional
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from backend.auth import as_utc, current_user, get_db, now, require_password
+from backend.auth import as_utc, current_user, delete_user_data, get_db, is_sample_copy, now, require_password
 from backend.models import (
     CalibrationAnswers,
     Checkin,
     Consent,
     DailyMeasurement,
-    LoginFailure,
     User,
-    UserModel,
-    UserSession,
 )
 
 LOGGER = logging.getLogger("mindwatch")
@@ -32,7 +30,8 @@ router = APIRouter(prefix="/me", tags=["account"])
 class DeleteIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    password: str
+    # Required for everyone except a sample copy, which has no password.
+    password: Optional[str] = None
 
 
 def _when(value: datetime) -> str:
@@ -107,14 +106,13 @@ def delete_my_account(
     db: Session = Depends(get_db),
 ):
     """Delete the account and all of the person's data, immediately. It cannot be undone."""
-    require_password(db, user, body.password, now(request))
-    user_id, email = user.id, user.email
-    # Each table is cleared by name, not left to the database cascade, so that every row goes
-    # on any database. The user row is last because the others point at it.
-    for model in (Checkin, DailyMeasurement, UserModel, CalibrationAnswers, Consent, UserSession):
-        db.execute(delete(model).where(model.user_id == user_id))
-    db.execute(delete(LoginFailure).where(LoginFailure.email == email))
-    db.execute(delete(User).where(User.id == user_id))
+    # A sample copy has no password, so it is the one kind of account that skips the check.
+    if not is_sample_copy(user):
+        if body.password is None:
+            raise HTTPException(422, "Enter your password to delete your account.")
+        require_password(db, user, body.password, now(request))
+    user_id = user.id
+    delete_user_data(db, user_id, user.email)
     db.commit()
     LOGGER.info("account deleted user_id=%s", user_id)
     return Response(status_code=204)

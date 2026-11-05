@@ -66,8 +66,10 @@ export interface DemoConfig {
 export interface AuthUser {
   id: string;
   email: string;
-  /** True for the read-only sample account. Absent for everyone else. */
+  /** True for a sample copy: sample data in a private, fully usable account. Absent for everyone else. */
   is_sample?: boolean;
+  /** When a sample copy is deleted. Null or absent for normal accounts. */
+  sample_expires_at?: string | null;
 }
 
 export interface AuthSession {

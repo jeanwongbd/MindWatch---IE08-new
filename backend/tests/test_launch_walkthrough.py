@@ -105,11 +105,14 @@ class Walkthrough:
         login = self.client.post("/auth/login", json={"email": email, "password": PASSWORD})
         self.assertEqual(login.status_code, 401)
 
-    def test_the_sample_account_can_be_read_but_not_changed(self):
+    def test_the_sample_is_a_private_copy_that_works_like_a_normal_account(self):
         seed(self.app.state.engine, date(2026, 1, 15))
-        sample = self.client.post("/auth/sample").json()["token"]
+        visit = self.client.post("/auth/sample", json={"utc_offset_minutes": 0}).json()
+        sample = visit["token"]
+        self.assertTrue(visit["user"]["is_sample"])
         self.assertEqual(self.client.get("/me/checkins", headers=self.headers(sample)).status_code, 200)
-        self.assertEqual(self.checkin(sample, 9).status_code, 403)
+        self.assertEqual(self.checkin(sample, 9).status_code, 201)
+        self.assertEqual(self.client.post("/me/delete", json={}, headers=self.headers(sample)).status_code, 204)
 
 
 class OnSqlite(Walkthrough, unittest.TestCase):

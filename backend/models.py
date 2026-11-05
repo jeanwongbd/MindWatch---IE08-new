@@ -33,6 +33,8 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     # The read-only sample account. It has no usable password and can only be read.
     is_sample: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=sa_false())
+    # Set only on a private copy of the sample made for one visitor. The copy is removed after this time.
+    sample_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class UserSession(Base):

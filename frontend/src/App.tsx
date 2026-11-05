@@ -22,6 +22,7 @@ import { QUESTIONS, firstUnanswered, type Answers } from "./calibrationQuestions
 import { clearAnswers, loadAnswers, saveAnswers } from "./onboarding";
 import { clearToken, getToken, onSessionExpired, setToken } from "./session";
 import { useServerWaking } from "./useServerWaking";
+import { utcOffsetMinutes } from "./checkinWords";
 
 type View = "welcome" | "signin" | "calibration" | "consent" | "signup" | "home" | "checkin" | "trends" | "why" | "reminders" | "watch" | "account" | "support";
 
@@ -108,9 +109,15 @@ export default function App() {
   async function startSample() {
     setNotice("");
     try {
-      signedIn(await api<AuthSession>("/auth/sample", { method: "POST" }));
+      signedIn(
+        await api<AuthSession>("/auth/sample", {
+          method: "POST",
+          body: JSON.stringify({ utc_offset_minutes: utcOffsetMinutes() }),
+        }),
+      );
     } catch (e) {
-      setNotice(friendlyError(e));
+      // "Too many people are trying it" carries its own message; friendlyError would call it failed attempts.
+      setNotice(e instanceof ApiError && e.status === 429 && e.detail ? e.detail : friendlyError(e));
     }
   }
 
