@@ -5,10 +5,7 @@
  * Source: the table in APP_PLAN.md (2 November 2026), which lists the NTU contacts and the
  * national lines. The numbers were copied from the plan and not independently checked.
  *
- * OPEN QUESTION FOR THE OWNER, before any real person uses this: the after-hours number matches
- * NTU's Wellbeing contact page, but other NTU pages differ. The NIE crisis page gives 6904 7041,
- * and the research guidance page lists 6904 1101 as a 24-hour counselling hotline for students and
- * staff. Please confirm the after-hours number with the counselling centre.
+ * The owner has confirmed the after-hours number.
  */
 export interface Phone {
   /** How it is written on screen. */
