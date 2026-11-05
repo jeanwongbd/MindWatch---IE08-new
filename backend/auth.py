@@ -83,9 +83,9 @@ def now(request: Request) -> datetime:
     return request.app.state.clock()
 
 
-def start_session(db: Session, user: User, current: datetime) -> dict:
+def start_session(db: Session, user: User, current: datetime, days: int = SESSION_DAYS) -> dict:
     token = secrets.token_urlsafe(32)
-    expires = current + timedelta(days=SESSION_DAYS)
+    expires = current + timedelta(days=days)
     db.add(
         UserSession(
             id=str(uuid.uuid4()),
@@ -99,7 +99,7 @@ def start_session(db: Session, user: User, current: datetime) -> dict:
     return {
         "token": token,
         "expires_at": expires.isoformat(),
-        "user": {"id": user.id, "email": user.email},
+        "user": {"id": user.id, "email": user.email, "is_sample": user.is_sample},
     }
 
 
@@ -124,10 +124,15 @@ def current_session(request: Request, db: Session = Depends(get_db)) -> UserSess
     return row
 
 
-def current_user(session: UserSession = Depends(current_session), db: Session = Depends(get_db)) -> User:
+def current_user(
+    request: Request, session: UserSession = Depends(current_session), db: Session = Depends(get_db)
+) -> User:
     user = db.get(User, session.user_id)
     if user is None:
         raise HTTPException(401, "Not signed in.")
+    # The sample account is read-only. Checking here covers every route that uses this dependency.
+    if user.is_sample and request.method not in ("GET", "HEAD", "OPTIONS"):
+        raise HTTPException(403, "The sample account is read-only.")
     return user
 
 
@@ -273,6 +278,15 @@ def login(body: LoginIn, request: Request, db: Session = Depends(get_db)):
     return start_session(db, user, current)
 
 
+@router.post("/sample")
+def start_sample(request: Request, db: Session = Depends(get_db)):
+    """Open the read-only sample account without a password. The session lasts one day."""
+    user = db.scalar(select(User).where(User.is_sample.is_(True)))
+    if user is None:
+        raise HTTPException(404, "The sample account is not set up.")
+    return start_session(db, user, now(request), days=1)
+
+
 @router.post("/logout", status_code=204)
 def logout(session: UserSession = Depends(current_session), db: Session = Depends(get_db)):
     user_id = session.user_id
@@ -284,7 +298,7 @@ def logout(session: UserSession = Depends(current_session), db: Session = Depend
 
 @router.get("/me")
 def me(user: User = Depends(current_user)):
-    return {"id": user.id, "email": user.email}
+    return {"id": user.id, "email": user.email, "is_sample": user.is_sample}
 
 
 class PasswordChangeIn(BaseModel):
