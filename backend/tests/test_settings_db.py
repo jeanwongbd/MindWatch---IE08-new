@@ -53,7 +53,7 @@ class SettingsAndDatabase(unittest.TestCase):
             self.assertEqual(client.get("/health").json()["database"], "ready")
         with closing(sqlite3.connect(self.dir / "app.db")) as conn:
             version = conn.execute("select version_num from alembic_version").fetchone()
-        self.assertEqual(version, ("0006",))
+        self.assertEqual(version, ("0007",))
 
     def test_migrations_can_run_twice(self):
         url = self.sqlite_url()

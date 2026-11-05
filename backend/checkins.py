@@ -12,13 +12,14 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, StrictInt
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.auth import as_utc, current_user, get_db, now
 from backend.calibration import QUESTIONS
-from backend.models import CalibrationAnswers, Checkin, User
+from backend.models import CalibrationAnswers, Checkin, DailyMeasurement, User, UserModel
+from ml.src import user_model
 
 LOGGER = logging.getLogger("mindwatch")
 
@@ -57,6 +58,52 @@ def serialize(row: Checkin) -> dict:
 
 def local_today(current: datetime, utc_offset_minutes: int) -> date:
     return (current + timedelta(minutes=utc_offset_minutes)).date()
+
+
+def train_user_model(db: Session, user: User, current: datetime) -> None:
+    """Train this person's model when they reach 30 check-ins, then after every 7 more.
+
+    This runs after the check-in is already saved, and nothing here may stop the save: any failure
+    is logged and the check-in stays as it is. It reads only this user's own rows.
+    """
+    try:
+        count = db.scalar(select(func.count()).select_from(Checkin).where(Checkin.user_id == user.id))
+        if not user_model.due_for_training(count):
+            return
+        watch = {
+            m.date: m
+            for m in db.scalars(select(DailyMeasurement).where(DailyMeasurement.user_id == user.id)).all()
+        }
+        rows = []
+        for c in db.scalars(select(Checkin).where(Checkin.user_id == user.id)).all():
+            m = watch.get(c.date)
+            rows.append(
+                {
+                    "date": c.date,
+                    "stress": c.stress,
+                    "steps": m.steps if m else None,
+                    "sleep_minutes": m.sleep_minutes if m else None,
+                    "heart_rate_avg": m.heart_rate_avg if m else None,
+                }
+            )
+        result = user_model.train(rows)
+        saved = db.get(UserModel, user.id)
+        if saved is None:
+            saved = UserModel(user_id=user.id)
+            db.add(saved)
+        saved.status = result["status"]
+        saved.reason = result["reason"]
+        saved.trained_on = count
+        saved.holdout_days = result.get("holdout_days")
+        saved.model_error = result.get("model_error")
+        saved.average_error = result.get("average_error")
+        saved.params = result["params"]
+        saved.trained_at = current
+        db.commit()
+        LOGGER.info("model trained user_id=%s status=%s", user.id, result["status"])
+    except Exception:
+        db.rollback()
+        LOGGER.exception("model training failed user_id=%s", user.id)
 
 
 def own_checkin(db: Session, user: User, day: date) -> Optional[Checkin]:
@@ -125,6 +172,7 @@ def save_checkin(
             setattr(row, field, getattr(body, field))
         row.updated_at = current
         db.commit()
+    train_user_model(db, user, current)
     response.status_code = 201 if created else 200
     LOGGER.info("check-in %s user_id=%s", "saved" if created else "updated", user.id)
     return serialize(row)
