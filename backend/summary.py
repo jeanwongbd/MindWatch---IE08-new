@@ -24,6 +24,7 @@ MIN_FOR_AVERAGES = 3  # fewer than this and an average says nothing
 RECENT_DAYS = 7
 COMPARE_THRESHOLD = 1.5  # points on the 0 to 10 scale before today counts as higher or lower
 WORDS_SHOWN = 5
+ENERGY_SHOWN = 5
 # Home shows a calm "there are people you can talk to" message when the person's most recent
 # check-ins, all within the last week, are each this high. It points to help and never diagnoses.
 SUPPORT_CHECKINS = 3
@@ -117,6 +118,16 @@ def build_summary(rows: List[Checkin], today: date) -> Dict:
     ranked = sorted(counts, key=lambda w: (-counts[w], -latest[w].toordinal(), w))
     recent_words = [{"word": w, "count": counts[w]} for w in ranked[:WORDS_SHOWN]]
 
+    # Energy tags over the same window, ranked the same way as the words.
+    e_counts = Counter(t for r in recent for t in (r.energy or []))
+    e_latest = {}
+    for r in recent:
+        for t in r.energy or []:
+            if t not in e_latest or r.date > e_latest[t]:
+                e_latest[t] = r.date
+    e_ranked = sorted(e_counts, key=lambda t: (-e_counts[t], -e_latest[t].toordinal(), t))
+    recent_energy = [{"tag": t, "count": e_counts[t]} for t in e_ranked[:ENERGY_SHOWN]]
+
     return {
         "today": today.isoformat(),
         "count": count,
@@ -126,6 +137,7 @@ def build_summary(rows: List[Checkin], today: date) -> Dict:
         "recent_7d": recent_7d,
         "today_vs_usual": today_vs_usual,
         "recent_words": recent_words,
+        "recent_energy": recent_energy,
         "streak": streaks({r.date for r in rows}, today),
         "support_suggested": support_suggested,
         "why": build_why(rows, today, usual_raw, today_row, recent),

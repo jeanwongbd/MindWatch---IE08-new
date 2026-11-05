@@ -84,6 +84,7 @@ def export_my_data(request: Request, user: User = Depends(current_user), db: Ses
                 "sleep_hours": c.sleep_hours,
                 "sleep_quality": c.sleep_quality,
                 "activity": c.activity,
+                "energy": list(c.energy or []),
                 "saved_at": _when(c.updated_at),
             }
             for c in checkins

@@ -11,6 +11,8 @@ export interface Summary {
   recent_7d: { value: number; based_on: number; days: number } | null;
   today_vs_usual: { label: "higher" | "about" | "lower" } | null;
   recent_words: { word: string; count: number }[];
+  /** The tags picked most often this week, most first (at most 5). Plain counts, no cause implied. */
+  recent_energy: { tag: string; count: number }[];
   /** Consecutive days with a check-in. "waiting" means today has no check-in yet but yesterday does. */
   streak: { current: number; best: number; status: "building" | "waiting" | "none" };
   /** True when the most recent check-ins have all been very high, so Home points to support. */
@@ -31,6 +33,7 @@ export interface SavedCheckin {
   date: string;
   stress: number;
   word: string | null;
+  energy: string[];
   updated_at: string;
 }
 

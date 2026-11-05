@@ -16,8 +16,8 @@ TODAY_DATE = date(2026, 2, 1)
 NOON = datetime(2026, 2, 1, 12, 0, tzinfo=timezone.utc)
 
 
-def row(days_ago, stress, word=None):
-    return SimpleNamespace(date=TODAY_DATE - timedelta(days=days_ago), stress=stress, word=word)
+def row(days_ago, stress, word=None, energy=None):
+    return SimpleNamespace(date=TODAY_DATE - timedelta(days=days_ago), stress=stress, word=word, energy=energy)
 
 
 class SummaryRule(unittest.TestCase):
@@ -421,7 +421,7 @@ class SupportSuggested(unittest.TestCase):
         self.assertTrue(build_summary(high, TODAY_DATE)["support_suggested"])
         # A lower check-in the next day pushes the oldest of the three out of the newest three.
         tomorrow = TODAY_DATE + timedelta(days=1)
-        calmer = high + [SimpleNamespace(date=tomorrow, stress=4, word=None)]
+        calmer = high + [SimpleNamespace(date=tomorrow, stress=4, word=None, energy=None)]
         self.assertFalse(build_summary(calmer, tomorrow)["support_suggested"])
 
 

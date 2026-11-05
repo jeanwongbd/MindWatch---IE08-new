@@ -105,6 +105,8 @@ class Checkin(Base):
     sleep_hours: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
     sleep_quality: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
     activity: Mapped[Optional[str]] = mapped_column(String(24), nullable=True)
+    # Zero or more tags from "energy" in checkin_words.json, in that list's order. Never free text.
+    energy: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 

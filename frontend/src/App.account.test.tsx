@@ -27,6 +27,7 @@ const BASE: Summary = {
   recent_7d: null,
   today_vs_usual: null,
   recent_words: [],
+  recent_energy: [],
   streak: { current: 5, best: 5, status: "building" },
   support_suggested: false,
   why: { ready: false, have: 0, need: 7, today: null, week: null },

@@ -12,5 +12,6 @@
     "Frustrated",
     "Sad",
     "Lonely"
-  ]
+  ],
+  "energy": ["Exams", "Deadlines", "Lectures", "Group work", "Sleep", "Social", "Family", "Money", "Health", "Other"]
 }
