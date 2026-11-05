@@ -88,4 +88,12 @@ describe("the Support page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
     expect(onBack).toHaveBeenCalledTimes(1);
   });
+
+  it("has a Privacy link that opens /privacy.html in a new tab", () => {
+    render(<SupportScreen onBack={() => {}} />);
+    const link = screen.getByRole("link", { name: "Privacy" });
+    expect(link.getAttribute("href")).toBe("/privacy.html");
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toBe("noopener");
+  });
 });

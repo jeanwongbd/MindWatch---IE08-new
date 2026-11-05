@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>MindWatch privacy</title>
+<style>
+  :root { --bg: #ffffff; --ink: #1c1f24; --muted: #555b66; --line: #d9dde3; --link: #0b6b5d; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14171b; --ink: #e8eaed; --muted: #a3a9b3; --line: #2b3038; --link: #6fd3c0; }
+  }
+  html { background: var(--bg); }
+  body { margin: 0 auto; max-width: 40rem; padding: 1.25rem 1rem 3rem; background: var(--bg); color: var(--ink);
+         font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  h1 { font-size: 1.6rem; margin: 0 0 .25rem; }
+  h2 { font-size: 1.1rem; margin: 1.75rem 0 .4rem; padding-top: .9rem; border-top: 1px solid var(--line); }
+  p, li { margin: .4rem 0; }
+  ul { padding-left: 1.2rem; }
+  .muted { color: var(--muted); font-size: .9rem; }
+  a { color: var(--link); }
+</style>
+</head>
+<body>
+<h1>MindWatch privacy</h1>
+<p class="muted">Last updated: 5 November 2026</p>
+
+<h2>What MindWatch is</h2>
+<p>MindWatch is a student coursework project. It helps you compare how stressed you feel with your own usual levels. It is not a medical service and it can't diagnose anything.</p>
+
+<h2>What is stored for your account</h2>
+<ul>
+  <li>Your email address.</li>
+  <li>Your password, stored only as a one-way hash (Argon2). The password itself is never kept.</li>
+  <li>Which version of the agreement you accepted, when you accepted it, and that you confirmed you are 18 or over.</li>
+  <li>Your starting-point answers.</li>
+  <li>Your daily check-ins: stress from 0 to 10, an optional word of the day, and optional sleep hours, sleep quality and activity answers.</li>
+  <li>Watch data, only if you connect it in the Android app: daily steps, sleep minutes and average heart rate. Nothing else.</li>
+  <li>The status of your personal model (whether it is ready, and the numbers it uses).</li>
+</ul>
+<p>Reminder settings and any reminders stay on your phone. They are not sent to the server.</p>
+
+<h2>What is not collected</h2>
+<ul>
+  <li>No free-text notes.</li>
+  <li>No location.</li>
+  <li>No contacts.</li>
+  <li>No advertising IDs.</li>
+  <li>Heart rate variability and resting heart rate are not read.</li>
+</ul>
+
+<h2>Where it lives</h2>
+<p>The app's server runs on Render. The database is on Neon (PostgreSQL). Watch data is read on your phone from Android Health Connect, and only the daily totals listed above are sent.</p>
+
+<h2>Who can see it</h2>
+<p>Only you, through your account. The student project team who run the database could technically access it. Your data is not sold, not shared, and not used for research or advertising.</p>
+<p>The server's logs contain account IDs only. They never contain your answers, words, email or watch data.</p>
+
+<h2>Your controls</h2>
+<ul>
+  <li>On the Account page you can download all your data and delete your account. Deletion is immediate and removes everything.</li>
+  <li>You can disconnect watch data at any time in Health Connect.</li>
+</ul>
+
+<h2>Sample accounts</h2>
+<p>Each sample visit gets a private copy of study data, which is deleted after a day. The study data comes from a published dataset of university students: "A Dataset of University Students' Stress and Anxiety Levels based on Questionnaires and Wearable Sensors" (Garcia-Ceja et al.).</p>
+
+<h2>Support</h2>
+<p>If you are struggling, the app's Support page lists NTU and Singapore helplines.</p>
+</body>
+</html>

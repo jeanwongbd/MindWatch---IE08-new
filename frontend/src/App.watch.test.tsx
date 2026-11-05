@@ -82,11 +82,13 @@ const card = () => screen.getByRole("group", { name: "Your watch data" });
 const putBody = (spy: ReturnType<typeof stubBackend>) => JSON.parse(callsTo(spy, "PUT /me/measurements")[0][1]!.body as string);
 
 describe("who is offered the watch data", () => {
-  it("nobody on the website: nothing is asked of the server and nothing is shown", async () => {
+  it("the website never reads the watch, even for people with saved data", async () => {
     delete (globalThis as { Capacitor?: unknown }).Capacitor;
-    const spy = await openHome({ ...WITH_WATCH, ...saved(day()) });
-    expect(screen.queryByRole("group", { name: "Your watch data" })).toBeNull();
-    expect(callsTo(spy, "GET /me/checkins/setup")).toHaveLength(0);
+    connect();
+    await openHome({ ...WITH_WATCH, ...saved(day()) });
+    await screen.findByText(/Synced from the MindWatch Android app\./);
+    expect(plugin.getData).not.toHaveBeenCalled();
+    expect(plugin.requestHealthPermissions).not.toHaveBeenCalled();
   });
 
   it("people who said they have no watch are not offered it, and nothing is read", async () => {
@@ -257,5 +259,72 @@ describe("sync_failure_keeps_checkin", () => {
     await screen.findByRole("heading", { name: "Daily check-in" });
     expect(plugin.getData).not.toHaveBeenCalled();
     expect(plugin.requestHealthPermissions).not.toHaveBeenCalled();
+  });
+});
+
+describe("the watch card on the website", () => {
+  const web = () => delete (globalThis as { Capacitor?: unknown }).Capacitor;
+
+  it("web_shows_saved_watch_data", async () => {
+    web();
+    const spy = await openHome({ ...WITH_WATCH, ...saved(day()) });
+    await waitFor(() => expect(card().textContent).toMatch(/Steps: 8,357/));
+    expect(card().textContent).toMatch(/Sleep: 7 h 15 min/);
+    expect(card().textContent).toMatch(/Heart rate: 68 beats a minute on average/);
+    expect(card().textContent).toMatch(/3 Nov/);
+    expect(card().textContent).toMatch(/Synced from the MindWatch Android app\./);
+    expect(callsTo(spy, "PUT /me/measurements")).toHaveLength(0);
+  });
+
+  it("web_sample_says_its_watch_data_is_from_the_study", async () => {
+    web();
+    await openHome({ ...WITH_WATCH, ...saved(day()), "GET /auth/me": { body: { ...USER, is_sample: true } } });
+    await waitFor(() => expect(card().textContent).toMatch(/Sample data from the study\./));
+    expect(card().textContent).not.toMatch(/Android app/);
+  });
+
+  it("web_never_offers_connect", async () => {
+    web();
+    await openHome({ ...WITH_WATCH, ...saved(day()) });
+    await waitFor(() => expect(card().textContent).toMatch(/Steps/));
+    expect(text()).not.toMatch(/Connect your watch data|Checking your watch|Couldn't read your watch/);
+    expect(screen.queryByRole("button", { name: "Manage" })).toBeNull();
+    web();
+    cleanup();
+    await openHome({ ...WITH_WATCH, ...saved() });
+    expect(screen.queryByRole("button", { name: "Connect your watch data" })).toBeNull();
+  });
+
+  it("web_hides_card_without_data", async () => {
+    web();
+    const empty = day({ steps: null, sleep_minutes: null, heart_rate_avg: null });
+    const spy = await openHome({ ...WITH_WATCH, ...saved(empty) });
+    await waitFor(() => expect(callsTo(spy, "GET /me/measurements")).toHaveLength(1));
+    expect(screen.queryByRole("group", { name: "Your watch data" })).toBeNull();
+  });
+
+  it("web_hides_card_for_non_watch_users", async () => {
+    web();
+    const spy = await openHome({ ...NO_WATCH, ...saved(day()) });
+    await waitFor(() => expect(callsTo(spy, "GET /me/checkins/setup")).toHaveLength(1));
+    expect(callsTo(spy, "GET /me/measurements")).toHaveLength(0);
+    expect(screen.queryByRole("group", { name: "Your watch data" })).toBeNull();
+  });
+
+  it("web_never_calls_the_plugin", async () => {
+    web();
+    connect();
+    await openHome({ ...WITH_WATCH, ...saved(day()) });
+    await waitFor(() => expect(card().textContent).toMatch(/Steps/));
+    expect(plugin.getData).not.toHaveBeenCalled();
+    expect(plugin.requestHealthPermissions).not.toHaveBeenCalled();
+    expect(plugin.openHealthConnect).not.toHaveBeenCalled();
+  });
+
+  it("native_behaviour_unchanged", async () => {
+    const spy = await openHome({ ...WITH_WATCH });
+    expect(await screen.findByRole("button", { name: "Connect your watch data" })).toBeTruthy();
+    expect(text()).not.toMatch(/Synced from the MindWatch Android app/);
+    expect(callsTo(spy, "GET /me/measurements")).toHaveLength(0);
   });
 });

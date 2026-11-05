@@ -156,7 +156,7 @@ export default function HomeScreen({ user, onCheckIn, onTrends, onWhy, onReminde
             </div>
           )}
 
-          <WatchCard userId={user.id} onOpen={onWatch} />
+          <WatchCard userId={user.id} onOpen={onWatch} isSample={!!user.is_sample} />
 
           <WebReminderBanner userId={user.id} todayDone={summary.today_checkin !== null} />
           {summary.count >= 1 && <ReminderOffer userId={user.id} />}

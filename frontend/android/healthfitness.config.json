@@ -6,5 +6,5 @@
   },
   "disableBackgroundJobs": true,
   "disableReadHealthDataHistory": true,
-  "privacyPolicyUrl": "https://example.com/privacy-policy"
+  "privacyPolicyUrl": "https://mindwatch-frontend.onrender.com/privacy.html"
 }

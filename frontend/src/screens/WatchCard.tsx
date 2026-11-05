@@ -34,6 +34,8 @@ type Eligible = "checking" | "yes" | "no";
 interface Props {
   userId: string;
   onOpen: () => void;
+  /** A sample copy: its saved watch data came from the study, not from a phone. */
+  isSample?: boolean;
 }
 
 /**
@@ -41,7 +43,7 @@ interface Props {
  * watch. It states plain facts, never a cause, and never gets in the way of a check-in: if the sync
  * fails it says so and nothing else changes.
  */
-export default function WatchCard({ userId, onOpen }: Props) {
+export default function WatchCard({ userId, onOpen, isSample = false }: Props) {
   const native = isNativeApp();
   const [eligible, setEligible] = useState<Eligible>(native ? "checking" : "no");
   const [days, setDays] = useState<SavedWatchDay[] | null>(null);
@@ -58,6 +60,21 @@ export default function WatchCard({ userId, onOpen }: Props) {
       .catch(() => {
         if (live) setEligible("no");
       });
+    return () => {
+      live = false;
+    };
+  }, [native]);
+
+  // On the website the card is read-only: it only shows what the phone already saved.
+  useEffect(() => {
+    if (native) return;
+    let live = true;
+    api<{ wears_watch?: boolean }>("/me/checkins/setup")
+      .then((setup) => (setup.wears_watch === true ? fetchWatchDays() : null))
+      .then((r) => {
+        if (live && r) setDays(r.measurements);
+      })
+      .catch(() => {});
     return () => {
       live = false;
     };
@@ -95,6 +112,22 @@ export default function WatchCard({ userId, onOpen }: Props) {
       live = false;
     };
   }, [eligible, connected, userId]);
+
+  if (!native) {
+    const saved = days?.find(hasData);
+    if (!saved) return null;
+    return (
+      <div role="group" aria-label="Your watch data" className="rounded-2xl border border-border p-4 space-y-1.5 text-sm text-ink">
+        <p className="text-xs text-muted">Your watch data, {dayText(saved.date)}</p>
+        <p>Steps: {stepsText(saved.steps)}</p>
+        <p>Sleep: {sleepText(saved.sleep_minutes)}</p>
+        <p>Heart rate: {heartText(saved.heart_rate_avg)}</p>
+        <p className="text-xs text-muted">
+          {isSample ? "Sample data from the study." : "Synced from the MindWatch Android app."}
+        </p>
+      </div>
+    );
+  }
 
   if (eligible !== "yes") return null;
 

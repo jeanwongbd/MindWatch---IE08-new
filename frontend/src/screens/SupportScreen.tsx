@@ -50,7 +50,10 @@ export default function SupportScreen({ onBack }: Props) {
       <p className="text-[11px] text-dim text-center">
         MindWatch is a university project. It is not medical advice and can't diagnose anything.
       </p>
-      <div>
+      <div className="flex justify-between">
+        <a href="/privacy.html" target="_blank" rel="noopener" className={linkButtonClass}>
+          Privacy
+        </a>
         <button type="button" onClick={onBack} className={linkButtonClass}>
           Back
         </button>
