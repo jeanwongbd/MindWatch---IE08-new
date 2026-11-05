@@ -14,10 +14,11 @@ export default function WelcomeScreen({ onSignIn, onCreateAccount, onSample, onS
   return (
     <div
       style={{ fontFamily: "var(--font-body)" }}
-      className="min-h-screen bg-page flex items-center justify-center p-3"
+      className="min-h-screen bg-page flex items-center justify-center p-2 sm:p-4"
     >
-      <div className="w-full max-w-[420px] bg-background rounded-[36px] border border-border p-8 space-y-6 text-center">
-        <h1 className="text-2xl font-semibold text-ink">MindWatch</h1>
+      <div className="w-full max-w-[420px] bg-background rounded-[40px] border border-border px-6 py-10 sm:px-8 space-y-6 text-center">
+        <h1 className="text-5xl font-semibold text-ink tracking-tight">MindWatch</h1>
+        <p className="text-lg text-ink">A calmer way to notice how your days feel.</p>
         <p className="text-sm text-muted">
           Compare how stressed you say you feel with what a wearable measures. This is not medical
           advice and cannot diagnose anything.
@@ -30,7 +31,7 @@ export default function WelcomeScreen({ onSignIn, onCreateAccount, onSample, onS
         {onCreateAccount && (
           <button
             onClick={onCreateAccount}
-            className="w-full py-3.5 bg-ink text-background rounded-2xl hover:opacity-90 active:opacity-80 transition-opacity"
+            className="w-full py-3.5 bg-inverse text-on-inverse rounded-full hover:opacity-90 active:opacity-80 transition-opacity"
             style={{ fontWeight: 500 }}
           >
             Get started
@@ -39,7 +40,7 @@ export default function WelcomeScreen({ onSignIn, onCreateAccount, onSample, onS
         {onSignIn && (
           <button
             onClick={onSignIn}
-            className="w-full py-3.5 border border-border text-ink rounded-2xl hover:opacity-90 active:opacity-80 transition-opacity"
+            className="w-full py-3.5 bg-surface border border-border text-ink rounded-full hover:opacity-90 active:opacity-80 transition-opacity"
             style={{ fontWeight: 500 }}
           >
             Sign in

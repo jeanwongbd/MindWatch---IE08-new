@@ -2,26 +2,31 @@
 @import 'tailwindcss';
 
 /* Palette lives here as plain custom properties so it can be read at runtime
-   (SVG fills, inline styles) and swapped wholesale for a dark theme. */
+   (SVG fills, inline styles). The app is dark: deep indigo surfaces, light text.
+   Every text colour below reads at 4.5:1 or better on every surface. */
 :root {
-  --c-page: #e8e6e1;
-  --c-background: #ffffff;
-  --c-surface: #f6f5f2;
-  --c-surface-raised: #eceae5;
-  --c-input: #f1efea;
-  --c-header: #f6f5f2;
-  --c-selected: #f0edfd;
-  --c-border: #e2e0da;
-  --c-ink: #1a1a18;
-  --c-muted: #6b6b63;
-  --c-dim: #7d7d75;
-  --c-inverse: #1a1a18;
-  --c-on-inverse: #ffffff;
-  --c-accent-stress: #c4441f;
-  --c-accent-load: #9a6b10;
-  --c-accent-calm: #1f7a62;
-  --c-accent-pulse: #6d4ae0;
-  --c-alert-surface: #fdf6e8;
+  color-scheme: dark;
+  --c-page: #17142f;
+  --c-background: #211c4d;
+  --c-surface: #2e2870;
+  --c-surface-raised: #3c3489;
+  --c-input: #2e2870;
+  --c-header: #211c4d;
+  --c-selected: #3c3489;
+  --c-border: #4a4199;
+  --c-ink: #f4f3fe;
+  --c-muted: #cecbf6;
+  --c-dim: #afa9ec;
+  --c-inverse: #eeedfe;
+  --c-on-inverse: #211c4d;
+  --c-accent-stress: #f0997b;
+  --c-accent-load: #fac775;
+  --c-accent-calm: #5dcaa5;
+  --c-accent-pulse: #afa9ec;
+  --c-alert-surface: #4a1b0c;
+  /* The streak flame badge. */
+  --c-flame: #f0997b;
+  --c-on-flame: #4a1b0c;
 }
 
 @theme inline {

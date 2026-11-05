@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import type { AuthUser } from "../api";
-import { fetchSummary, type Summary } from "../summary";
+import { fetchCheckins, fetchSummary, type SavedCheckin, type Summary } from "../summary";
+import { WORD_CHIP, chipClass, energyChip } from "../chips";
 import { reminders } from "../remindersService";
 import { ReminderOffer, WebReminderBanner } from "./ReminderPrompts";
 import WatchCard from "./WatchCard";
-import AuthFrame, { friendlyError, linkButtonClass, primaryButtonClass } from "./AuthFrame";
+import AuthFrame, { friendlyError, linkButtonClass } from "./AuthFrame";
 
 interface Props {
   user: AuthUser;
@@ -51,13 +52,51 @@ function streakText(summary: Summary): { main: string; best: string | null } | n
 }
 
 const secondaryButtonClass =
-  "w-full py-3.5 border border-border text-ink rounded-2xl hover:opacity-90 active:opacity-80 transition-opacity";
+  "w-full py-3.5 border border-border text-ink rounded-full hover:opacity-90 active:opacity-80 transition-opacity";
+const primaryPillClass =
+  "w-full py-3.5 bg-inverse text-on-inverse rounded-full hover:opacity-90 active:opacity-80 transition-opacity";
+
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function parseLocal(date: string): Date {
+  const [y, m, d] = date.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function dateLabel(date: string): string {
+  const d = parseLocal(date);
+  return `${DAY_NAMES[d.getDay()]} ${d.getDate()} ${MONTH_NAMES[d.getMonth()]}`;
+}
+
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/** The seven local dates ending at `today`, oldest first, each with that day's stress (or null). */
+function lastSevenDays(today: string, checkins: SavedCheckin[]) {
+  const base = parseLocal(today);
+  const out: { date: string; label: string; stress: number | null }[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(base.getFullYear(), base.getMonth(), base.getDate() - i);
+    const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    out.push({ date, label: DAY_NAMES[d.getDay()], stress: checkins.find((c) => c.date === date)?.stress ?? null });
+  }
+  return out;
+}
+
+function FlameIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 2c1 4 5 6 5 11a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-4-1-6 1-10z" />
+    </svg>
+  );
+}
 
 /** The signed-in Home. Plain descriptions of the person's own check-ins, never a cause or a prediction. */
 export default function HomeScreen({ user, onCheckIn, onTrends, onWhy, onReminders, onWatch, onAccount, onJournal, onSupport, onSignOut }: Props) {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
+  const [recent, setRecent] = useState<SavedCheckin[] | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -77,6 +116,24 @@ export default function HomeScreen({ user, onCheckIn, onTrends, onWhy, onReminde
       live = false;
     };
   }, [attempt]);
+
+  // The chart's data. If this request fails, the chart is simply left out.
+  useEffect(() => {
+    if (!summary) return;
+    let live = true;
+    setRecent(null);
+    fetchCheckins(7)
+      .then((r) => {
+        if (live) setRecent(r.checkins);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [summary]);
+
+  const streak = summary ? streakText(summary) : null;
+  const week = summary && recent ? lastSevenDays(summary.today, recent) : null;
 
   return (
     <AuthFrame title="Home">
@@ -109,8 +166,36 @@ export default function HomeScreen({ user, onCheckIn, onTrends, onWhy, onReminde
 
       {summary && (
         <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted">{dateLabel(summary.today)}</p>
+            {summary.streak.current > 0 && (
+              <span
+                role="img"
+                aria-label={`${summary.streak.current}-day streak`}
+                className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm"
+                style={{ background: "var(--c-flame)", color: "var(--c-on-flame)", fontWeight: 600 }}
+              >
+                <FlameIcon />
+                <span aria-hidden="true">{summary.streak.current}</span>
+              </span>
+            )}
+          </div>
+
+          {streak && (
+            <div role="group" aria-label="Your streak" className="space-y-1">
+              <p className="flex items-baseline gap-2">
+                <span className="text-ink" style={{ fontSize: 48, lineHeight: 1, fontWeight: 600 }}>
+                  {summary.streak.current}
+                </span>
+                <span className="text-sm text-muted">day streak</span>
+              </p>
+              {summary.streak.status !== "building" && <p className="text-sm text-ink">{streak.main}</p>}
+              {streak.best && <p className="text-xs text-muted">{streak.best}</p>}
+            </div>
+          )}
+
           <div>
-            <p className="text-sm text-ink text-center">
+            <p className="text-sm text-ink">
               {summary.progress.done} of {summary.progress.goal} check-ins
             </p>
             <div
@@ -119,16 +204,42 @@ export default function HomeScreen({ user, onCheckIn, onTrends, onWhy, onReminde
               aria-valuemin={0}
               aria-valuemax={summary.progress.goal}
               aria-valuenow={summary.progress.done}
-              className="h-1.5 bg-border rounded mt-1.5"
+              className="h-2 bg-surface rounded-full mt-1.5"
             >
               <div
-                className="h-1.5 bg-ink rounded"
-                style={{ width: `${(summary.progress.done / summary.progress.goal) * 100}%` }}
+                className="h-2 bg-accent-pulse rounded-full"
+                style={{ width: `${Math.min(100, (summary.progress.done / summary.progress.goal) * 100)}%` }}
               />
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border p-4 text-center">
+          {week && (
+            <div
+              role="img"
+              aria-label={`Stress over the last 7 days: ${week.map((d) => `${d.label} ${d.stress ?? "no check-in"}`).join(", ")}`}
+              className="bg-surface rounded-2xl p-4"
+            >
+              <div className="flex items-end justify-between gap-2 h-20" aria-hidden="true">
+                {week.map((d) => (
+                  <div key={d.date} className="flex-1 flex flex-col justify-end h-full">
+                    <div
+                      className={`w-full rounded-md ${d.stress === null ? "bg-surface-raised" : "bg-accent-pulse"}`}
+                      style={{ height: d.stress === null ? "8%" : `${Math.max(8, d.stress * 10)}%` }}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-between gap-2 mt-1.5" aria-hidden="true">
+                {week.map((d) => (
+                  <span key={d.date} className="flex-1 text-center text-xs text-muted">
+                    {d.label.slice(0, 1)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="rounded-2xl bg-surface p-4 text-center">
             {summary.today_checkin ? (
               <p className="text-sm text-ink">
                 Today: {summary.today_checkin.stress} out of 10
@@ -139,15 +250,67 @@ export default function HomeScreen({ user, onCheckIn, onTrends, onWhy, onReminde
             )}
           </div>
 
-          {streakText(summary) && (
-            <div role="group" aria-label="Your streak" className="rounded-2xl border border-border p-4 text-center space-y-1">
-              <p className="text-sm text-ink">{streakText(summary)!.main}</p>
-              {streakText(summary)!.best && <p className="text-xs text-muted">{streakText(summary)!.best}</p>}
+          {summary.usual && (
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div role="group" aria-label="Your usual" className="rounded-2xl bg-surface p-4">
+                  <p className="text-xs text-muted">Your usual</p>
+                  <p className="text-ink" style={{ fontSize: 32, lineHeight: 1.1, fontWeight: 600 }}>
+                    {summary.usual.value}
+                    <span className="text-sm text-muted" style={{ fontWeight: 400 }}> out of 10</span>
+                  </p>
+                  <p className="text-xs text-muted">from {summary.usual.based_on} check-ins</p>
+                </div>
+                <div role="group" aria-label="Last 7 days" className="rounded-2xl bg-surface p-4">
+                  <p className="text-xs text-muted">Last 7 days</p>
+                  {summary.recent_7d ? (
+                    <>
+                      <p className="text-ink" style={{ fontSize: 32, lineHeight: 1.1, fontWeight: 600 }}>
+                        {summary.recent_7d.value}
+                        <span className="text-sm text-muted" style={{ fontWeight: 400 }}> out of 10</span>
+                      </p>
+                      <p className="text-xs text-muted">from {summary.recent_7d.based_on} check-ins</p>
+                    </>
+                  ) : (
+                    <p className="text-xs text-muted mt-1">not enough check-ins this week yet (it needs 3).</p>
+                  )}
+                </div>
+              </div>
+              {summary.today_vs_usual && (
+                <p className="text-sm text-ink text-center">{COMPARISON[summary.today_vs_usual.label]}</p>
+              )}
+            </div>
+          )}
+
+          {summary.recent_words.length > 0 && (
+            <div>
+              <p className="text-xs text-muted mb-1.5">Your words this week</p>
+              <ul className="flex flex-wrap gap-2" aria-label="Your words this week">
+                {summary.recent_words.map((w) => (
+                  <li key={w.word} className={chipClass} style={WORD_CHIP}>
+                    {w.word}
+                    {w.count > 1 ? ` (${w.count})` : ""}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {summary.recent_energy?.length > 0 && (
+            <div>
+              <p className="text-xs text-muted mb-1.5">What took your energy this week</p>
+              <ul className="flex flex-wrap gap-2" aria-label="What took your energy this week">
+                {summary.recent_energy.map((e) => (
+                  <li key={e.tag} className={chipClass} style={energyChip(e.tag)}>
+                    {e.tag} ({e.count})
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
           {summary.support_suggested && (
-            <div role="group" aria-label="Support suggestion" className="rounded-2xl border border-border p-4 text-center space-y-3">
+            <div role="group" aria-label="Support suggestion" className="rounded-2xl bg-surface p-4 text-center space-y-3">
               <p className="text-sm text-ink">
                 These last few days have been hard. You're not alone, and there are people you can talk to.
               </p>
@@ -165,57 +328,10 @@ export default function HomeScreen({ user, onCheckIn, onTrends, onWhy, onReminde
           {stageMessage(summary.count, summary.progress.goal) && (
             <p className="text-xs text-muted text-center">{stageMessage(summary.count, summary.progress.goal)}</p>
           )}
-
-          {summary.usual && (
-            <div className="rounded-2xl border border-border p-4 space-y-1.5 text-sm text-ink">
-              <p>
-                Your usual: {summary.usual.value} out of 10
-                <span className="block text-xs text-muted">(from {summary.usual.based_on} check-ins)</span>
-              </p>
-              {summary.recent_7d ? (
-                <p>
-                  Last 7 days: {summary.recent_7d.value} out of 10
-                  <span className="block text-xs text-muted">(from {summary.recent_7d.based_on} check-ins)</span>
-                </p>
-              ) : (
-                <p className="text-xs text-muted">Last 7 days: not enough check-ins this week yet (it needs 3).</p>
-              )}
-              {summary.today_vs_usual && (
-                <p className="pt-1.5 border-t border-border">{COMPARISON[summary.today_vs_usual.label]}</p>
-              )}
-            </div>
-          )}
-
-          {summary.recent_words.length > 0 && (
-            <div className="text-center">
-              <p className="text-xs text-muted mb-1.5">Your words this week</p>
-              <ul className="flex flex-wrap gap-2 justify-center" aria-label="Your words this week">
-                {summary.recent_words.map((w) => (
-                  <li key={w.word} className="px-3 py-1 rounded-full border border-border text-sm text-ink">
-                    {w.word}
-                    {w.count > 1 ? ` (${w.count})` : ""}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {summary.recent_energy?.length > 0 && (
-            <div className="text-center">
-              <p className="text-xs text-muted mb-1.5">What took your energy this week</p>
-              <ul className="flex flex-wrap gap-2 justify-center" aria-label="What took your energy this week">
-                {summary.recent_energy.map((e) => (
-                  <li key={e.tag} className="px-3 py-1 rounded-full border border-border text-sm text-ink">
-                    {e.tag} ({e.count})
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
         </div>
       )}
 
-      <button onClick={onCheckIn} className={primaryButtonClass} style={{ fontWeight: 500 }}>
+      <button onClick={onCheckIn} className={primaryPillClass} style={{ fontWeight: 500 }}>
         {summary?.today_checkin ? "Change today's check-in" : "Check in today"}
       </button>
       <button onClick={onTrends} className={secondaryButtonClass} style={{ fontWeight: 500 }}>

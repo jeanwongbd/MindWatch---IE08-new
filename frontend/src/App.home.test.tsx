@@ -116,9 +116,8 @@ describe("Home, by how many check-ins there are", () => {
   it("day 3: the usual level, the last 7 days and how today compares", async () => {
     await openHome(DAY_3);
     expect(await screen.findByText("3 of 30 check-ins")).toBeTruthy();
-    expect(text()).toMatch(/Your usual: 4\.3 out of 10/);
-    expect(text()).toMatch(/\(from 3 check-ins\)/);
-    expect(text()).toMatch(/Last 7 days: 4\.3 out of 10/);
+    expect(screen.getByRole("group", { name: "Your usual" }).textContent).toMatch(/4\.3.*out of 10.*from 3 check-ins/);
+    expect(screen.getByRole("group", { name: "Last 7 days" }).textContent).toMatch(/4\.3.*out of 10.*from 3 check-ins/);
     expect(screen.getByText("About your usual")).toBeTruthy();
     expect(text()).not.toMatch(/a few more days/);
   });
@@ -154,7 +153,7 @@ describe("Home, by how many check-ins there are", () => {
   it("says plainly when the last 7 days do not have enough check-ins", async () => {
     await openHome({ ...DAY_3, recent_7d: null });
     await screen.findByText("3 of 30 check-ins");
-    expect(text()).toMatch(/Last 7 days: not enough check-ins this week yet \(it needs 3\)/);
+    expect(text()).toMatch(/Last 7 days.*not enough check-ins this week yet \(it needs 3\)/);
   });
 
   it("never claims a cause", async () => {
@@ -246,7 +245,8 @@ describe("personal Trends", () => {
 
   it("asks for enough check-ins to cover 30 days", async () => {
     const spy = await openTrends();
-    expect(String(callsTo(spy, "GET /me/checkins")[0][0])).toContain("limit=60");
+    const urls = callsTo(spy, "GET /me/checkins").map(([url]) => String(url));
+    expect(urls.some((u) => u.includes("limit=60"))).toBe(true);
   });
 
   it("says so when there is nothing to show yet", async () => {

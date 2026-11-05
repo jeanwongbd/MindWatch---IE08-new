@@ -15,7 +15,7 @@ interface Props {
 
 const section = "rounded-2xl border border-border p-4 space-y-3";
 const outlineButton =
-  "w-full py-3 border border-border text-ink rounded-2xl text-sm hover:opacity-90 disabled:opacity-50";
+  "w-full py-3 bg-surface border border-border text-ink rounded-2xl text-sm hover:opacity-90 disabled:opacity-50";
 
 function ChangePassword() {
   const [current, setCurrent] = useState("");
@@ -239,7 +239,7 @@ function DeleteAccount({ onDeleted, isSample }: { onDeleted: () => void; isSampl
       <button
         type="submit"
         disabled={busy}
-        className="w-full py-3 bg-accent-stress text-white rounded-2xl text-sm disabled:opacity-50"
+        className="w-full py-3 bg-accent-stress text-[color:var(--c-on-flame)] rounded-2xl text-sm disabled:opacity-50"
         style={{ fontWeight: 500 }}
       >
         {busy ? "Deleting…" : "Delete everything"}

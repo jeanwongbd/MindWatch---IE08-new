@@ -56,14 +56,16 @@ describe("the streak on Home", () => {
   it("streak_counts_consecutive_days: shows the current and best streak", async () => {
     await openHome(summaryWith(14, { current: 5, best: 9, status: "building" }));
     const box = within(streakBox());
-    expect(box.getByText("5-day streak")).toBeTruthy();
+    expect(box.getByText("5")).toBeTruthy();
+    expect(box.getByText("day streak")).toBeTruthy();
     expect(box.getByText("Best: 9 days")).toBeTruthy();
   });
 
   it("uses the singular for one day", async () => {
     await openHome(summaryWith(1, { current: 1, best: 1, status: "building" }));
     const box = within(streakBox());
-    expect(box.getByText("1-day streak")).toBeTruthy();
+    expect(box.getByText("1")).toBeTruthy();
+    expect(box.getByText("day streak")).toBeTruthy();
     expect(box.getByText("Best: 1 day")).toBeTruthy();
   });
 
