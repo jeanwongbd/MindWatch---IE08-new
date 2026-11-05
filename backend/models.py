@@ -16,6 +16,7 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
 )
+from sqlalchemy import false as sa_false
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -30,6 +31,8 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    # The read-only sample account. It has no usable password and can only be read.
+    is_sample: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=sa_false())
 
 
 class UserSession(Base):

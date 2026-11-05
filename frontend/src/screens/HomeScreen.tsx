@@ -66,8 +66,11 @@ export default function HomeScreen({ user, onCheckIn, onTrends, onWhy, onReminde
         if (!live) return;
         setSummary(s);
         // Keep the phone's reminders in step: today's is skipped once today's check-in is done.
-        reminders.setTodayDone(s.today_checkin !== null);
-        reminders.sync(user.id).catch(() => {});
+        // The sample account is look-only: it never sets up reminders on this phone.
+        if (!user.is_sample) {
+          reminders.setTodayDone(s.today_checkin !== null);
+          reminders.sync(user.id).catch(() => {});
+        }
       })
       .catch((e) => {
         if (live) setError(friendlyError(e));
@@ -79,9 +82,16 @@ export default function HomeScreen({ user, onCheckIn, onTrends, onWhy, onReminde
 
   return (
     <AuthFrame title="Home">
-      <p className="text-xs text-muted text-center">
-        Signed in as <span className="text-ink">{user.email}</span>
-      </p>
+      {user.is_sample ? (
+        <p role="status" className="text-xs text-ink text-center rounded-2xl border border-border p-3">
+          Sample data. These are real check-ins from one participant in a research study, not a MindWatch user.
+          You can look around, but nothing here can be changed.
+        </p>
+      ) : (
+        <p className="text-xs text-muted text-center">
+          Signed in as <span className="text-ink">{user.email}</span>
+        </p>
+      )}
 
       {error && (
         <div className="space-y-2 text-center">
@@ -149,10 +159,10 @@ export default function HomeScreen({ user, onCheckIn, onTrends, onWhy, onReminde
             </div>
           )}
 
-          <WatchCard userId={user.id} onOpen={onWatch} />
+          {!user.is_sample && <WatchCard userId={user.id} onOpen={onWatch} />}
 
-          <WebReminderBanner userId={user.id} todayDone={summary.today_checkin !== null} />
-          {summary.count >= 1 && <ReminderOffer userId={user.id} />}
+          {!user.is_sample && <WebReminderBanner userId={user.id} todayDone={summary.today_checkin !== null} />}
+          {!user.is_sample && summary.count >= 1 && <ReminderOffer userId={user.id} />}
 
           {stageMessage(summary.count, summary.progress.goal) && (
             <p className="text-xs text-muted text-center">{stageMessage(summary.count, summary.progress.goal)}</p>
@@ -194,21 +204,27 @@ export default function HomeScreen({ user, onCheckIn, onTrends, onWhy, onReminde
         </div>
       )}
 
-      <button onClick={onCheckIn} className={primaryButtonClass} style={{ fontWeight: 500 }}>
-        {summary?.today_checkin ? "Change today's check-in" : "Check in today"}
-      </button>
+      {!user.is_sample && (
+        <button onClick={onCheckIn} className={primaryButtonClass} style={{ fontWeight: 500 }}>
+          {summary?.today_checkin ? "Change today's check-in" : "Check in today"}
+        </button>
+      )}
       <button onClick={onTrends} className={secondaryButtonClass} style={{ fontWeight: 500 }}>
         See your trends
       </button>
       <button onClick={onWhy} className={secondaryButtonClass} style={{ fontWeight: 500 }}>
         Why?
       </button>
-      <button onClick={onReminders} className={secondaryButtonClass} style={{ fontWeight: 500 }}>
-        Reminders
-      </button>
-      <button onClick={onAccount} className={secondaryButtonClass} style={{ fontWeight: 500 }}>
-        Account
-      </button>
+      {!user.is_sample && (
+        <button onClick={onReminders} className={secondaryButtonClass} style={{ fontWeight: 500 }}>
+          Reminders
+        </button>
+      )}
+      {!user.is_sample && (
+        <button onClick={onAccount} className={secondaryButtonClass} style={{ fontWeight: 500 }}>
+          Account
+        </button>
+      )}
       <button onClick={onSignOut} className={secondaryButtonClass} style={{ fontWeight: 500 }}>
         Sign out
       </button>

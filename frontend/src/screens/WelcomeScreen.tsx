@@ -3,13 +3,15 @@ interface Props {
   /** Shown only when accounts are switched on. */
   onSignIn?: () => void;
   onCreateAccount?: () => void;
+  /** Shown only when accounts are switched on. Opens the read-only sample account. */
+  onSample?: () => void;
   /** Shown only when accounts are switched on. */
   onSupport?: () => void;
   /** A short message, for example after an account has been deleted. */
   notice?: string;
 }
 
-export default function WelcomeScreen({ onViewDemo, onSignIn, onCreateAccount, onSupport, notice }: Props) {
+export default function WelcomeScreen({ onViewDemo, onSignIn, onCreateAccount, onSample, onSupport, notice }: Props) {
   return (
     <div
       style={{ fontFamily: "var(--font-body)" }}
@@ -55,6 +57,13 @@ export default function WelcomeScreen({ onViewDemo, onSignIn, onCreateAccount, o
         >
           View demo
         </button>
+        {onSample && (
+          <div>
+            <button type="button" onClick={onSample} className="text-xs text-accent-calm hover:underline" style={{ fontWeight: 500 }}>
+              Look at a sample account
+            </button>
+          </div>
+        )}
         {onSupport && (
           <div>
             <button type="button" onClick={onSupport} className="text-xs text-accent-calm hover:underline">

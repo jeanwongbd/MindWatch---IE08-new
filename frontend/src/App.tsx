@@ -106,6 +106,15 @@ export default function App() {
     signedIn(session);
   }
 
+  async function startSample() {
+    setNotice("");
+    try {
+      signedIn(await api<AuthSession>("/auth/sample", { method: "POST" }));
+    } catch (e) {
+      setNotice(friendlyError(e));
+    }
+  }
+
   async function signOut() {
     try {
       await api("/auth/logout", { method: "POST" });
@@ -257,6 +266,7 @@ export default function App() {
       onViewDemo={() => setView("demo")}
       onSignIn={ACCOUNTS_ENABLED ? () => setView("signin") : undefined}
       onCreateAccount={ACCOUNTS_ENABLED ? startOnboarding : undefined}
+      onSample={ACCOUNTS_ENABLED ? startSample : undefined}
       onSupport={ACCOUNTS_ENABLED ? () => openSupport("welcome") : undefined}
       notice={notice}
     />

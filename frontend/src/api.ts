@@ -66,6 +66,8 @@ export interface DemoConfig {
 export interface AuthUser {
   id: string;
   email: string;
+  /** True for the read-only sample account. Absent for everyone else. */
+  is_sample?: boolean;
 }
 
 export interface AuthSession {
