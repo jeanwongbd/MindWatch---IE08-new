@@ -18,6 +18,7 @@ const SUMMARY: Summary = {
   recent_7d: { value: 1.4, based_on: 7, days: 7 },
   today_vs_usual: { label: "about" },
   recent_words: [],
+  recent_energy: [],
   streak: { current: 5, best: 9, status: "building" },
   support_suggested: false,
   why: { ready: false, have: 0, need: 7, today: null, week: null },

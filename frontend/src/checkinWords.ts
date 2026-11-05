@@ -15,6 +15,20 @@ export const WORDS = [
   "Lonely",
 ] as const;
 
+/** The "what took your energy" tags. backend/checkin_words.json (key "energy") must match; a test compares the two. */
+export const ENERGY = [
+  "Exams",
+  "Deadlines",
+  "Lectures",
+  "Group work",
+  "Sleep",
+  "Social",
+  "Family",
+  "Money",
+  "Health",
+  "Other",
+] as const;
+
 const two = (n: number) => String(n).padStart(2, "0");
 
 /** The phone's own calendar date, as YYYY-MM-DD. */

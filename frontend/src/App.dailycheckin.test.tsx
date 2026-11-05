@@ -61,7 +61,7 @@ describe("the signed-in daily check-in", () => {
     tap("Tired");
     tap("Save check-in");
     expect(await screen.findByText(/Saved\. You can change it until the day ends\./)).toBeTruthy();
-    expect(putBody(spy)).toEqual({ stress: 6, word: "Tired", utc_offset_minutes: utcOffsetMinutes() });
+    expect(putBody(spy)).toEqual({ stress: 6, word: "Tired", energy: [], utc_offset_minutes: utcOffsetMinutes() });
     const [url, init] = callsTo(spy, `PUT /me/checkins/${TODAY}`)[0];
     expect(String(url)).toMatch(/\/me\/checkins\/2026-01-15$/);
     expect((init!.headers as Record<string, string>).Authorization).toBe("Bearer saved-token");

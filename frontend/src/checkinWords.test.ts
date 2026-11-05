@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { WORDS, dayBefore, localDate, utcOffsetMinutes } from "./checkinWords";
+import { ENERGY, WORDS, dayBefore, localDate, utcOffsetMinutes } from "./checkinWords";
 
 // The server decides which words are allowed. Tests run from the frontend folder (npm test, and CI).
 const backend = JSON.parse(readFileSync(resolve(process.cwd(), "../backend/checkin_words.json"), "utf8"));
@@ -10,6 +10,11 @@ describe("words match the backend", () => {
   it("same twelve words in the same order", () => {
     expect([...WORDS]).toEqual(backend.words);
     expect(WORDS).toHaveLength(12);
+  });
+
+  it("same ten energy tags in the same order", () => {
+    expect([...ENERGY]).toEqual(backend.energy);
+    expect(ENERGY).toHaveLength(10);
   });
 });
 

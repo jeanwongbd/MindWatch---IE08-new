@@ -199,6 +199,19 @@ export default function HomeScreen({ user, onCheckIn, onTrends, onWhy, onReminde
               </ul>
             </div>
           )}
+
+          {summary.recent_energy?.length > 0 && (
+            <div className="text-center">
+              <p className="text-xs text-muted mb-1.5">What took your energy this week</p>
+              <ul className="flex flex-wrap gap-2 justify-center" aria-label="What took your energy this week">
+                {summary.recent_energy.map((e) => (
+                  <li key={e.tag} className="px-3 py-1 rounded-full border border-border text-sm text-ink">
+                    {e.tag} ({e.count})
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
 

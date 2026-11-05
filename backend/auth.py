@@ -390,6 +390,7 @@ def start_sample(request: Request, body: Optional[SampleIn] = None, db: Session 
                 sleep_hours=row.sleep_hours,
                 sleep_quality=row.sleep_quality,
                 activity=row.activity,
+                energy=list(row.energy or []),
                 created_at=current,
                 updated_at=current,
             )

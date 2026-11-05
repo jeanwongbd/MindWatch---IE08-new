@@ -8,7 +8,7 @@ import logging
 import uuid
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, StrictInt
@@ -24,7 +24,10 @@ from ml.src import user_model
 LOGGER = logging.getLogger("mindwatch")
 
 # The word of the day comes from this fixed list. A frontend test keeps the screen in step with it.
-WORDS = tuple(json.loads((Path(__file__).resolve().parent / "checkin_words.json").read_text("utf-8"))["words"])
+_LISTS = json.loads((Path(__file__).resolve().parent / "checkin_words.json").read_text("utf-8"))
+WORDS = tuple(_LISTS["words"])
+# "What took your energy today?" tags come from this fixed list, in this order.
+ENERGY = tuple(_LISTS["energy"])
 
 # The by-hand sleep and activity answers use the same fixed options as the starting-point questions.
 MANUAL_FIELDS = ("sleep_hours", "sleep_quality", "activity")
@@ -40,6 +43,7 @@ class CheckinIn(BaseModel):
     sleep_hours: Optional[str] = None
     sleep_quality: Optional[str] = None
     activity: Optional[str] = None
+    energy: List[str] = Field(default_factory=list)
     # The phone's offset from UTC in minutes (Singapore is +480). It decides what "today" means.
     utc_offset_minutes: int = Field(..., ge=-720, le=840)
 
@@ -52,6 +56,7 @@ def serialize(row: Checkin) -> dict:
         "sleep_hours": row.sleep_hours,
         "sleep_quality": row.sleep_quality,
         "activity": row.activity,
+        "energy": list(row.energy or []),
         "updated_at": as_utc(row.updated_at).isoformat(),
     }
 
@@ -140,6 +145,10 @@ def save_checkin(
         if value is not None and value not in QUESTIONS[field]["options"]:
             raise HTTPException(422, "Pick an answer from the list.")
 
+    if len(set(body.energy)) != len(body.energy) or any(tag not in ENERGY for tag in body.energy):
+        raise HTTPException(422, "Pick energy answers from the list, each once.")
+    energy = [tag for tag in ENERGY if tag in body.energy]
+
     row = own_checkin(db, user, day)
     created = row is None
     if created:
@@ -152,6 +161,7 @@ def save_checkin(
             sleep_hours=body.sleep_hours,
             sleep_quality=body.sleep_quality,
             activity=body.activity,
+            energy=energy,
             created_at=current,
             updated_at=current,
         )
@@ -170,6 +180,7 @@ def save_checkin(
         row.word = body.word
         for field in MANUAL_FIELDS:
             setattr(row, field, getattr(body, field))
+        row.energy = energy
         row.updated_at = current
         db.commit()
     train_user_model(db, user, current)

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ApiError, api } from "../api";
-import { WORDS, dayBefore, localDate, utcOffsetMinutes } from "../checkinWords";
+import { ENERGY, WORDS, dayBefore, localDate, utcOffsetMinutes } from "../checkinWords";
 import { MANUAL_QUESTIONS, type ManualId } from "../manualQuestions";
 import { reminders } from "../remindersService";
 import AuthFrame, { friendlyError, linkButtonClass, primaryButtonClass } from "./AuthFrame";
@@ -9,6 +9,7 @@ interface SavedCheckin {
   date: string;
   stress: number;
   word: string | null;
+  energy?: string[];
   sleep_hours?: string | null;
   sleep_quality?: string | null;
   activity?: string | null;
@@ -36,6 +37,7 @@ export default function DailyCheckInScreen({ userId, onBack }: Props) {
   const [which, setWhich] = useState<Which>("today");
   const [stress, setStress] = useState<number | null>(null);
   const [word, setWord] = useState<string | null>(null);
+  const [energy, setEnergy] = useState<string[]>([]);
   // People with no smart watch are also asked about sleep and activity. Whether they are asked is
   // decided by the server; if it can't be reached the questions are simply left out.
   const [asksManual, setAsksManual] = useState(false);
@@ -63,6 +65,7 @@ export default function DailyCheckInScreen({ userId, onBack }: Props) {
     setLoading(true);
     setStress(null);
     setWord(null);
+    setEnergy([]);
     setManual(NO_MANUAL);
     setMessage("");
     setError("");
@@ -71,6 +74,7 @@ export default function DailyCheckInScreen({ userId, onBack }: Props) {
         if (!live) return;
         setStress(saved.stress);
         setWord(saved.word);
+        setEnergy(Array.isArray(saved.energy) ? saved.energy : []);
         setManual({
           sleep_hours: saved.sleep_hours ?? null,
           sleep_quality: saved.sleep_quality ?? null,
@@ -97,7 +101,7 @@ export default function DailyCheckInScreen({ userId, onBack }: Props) {
     try {
       await api(`/me/checkins/${dayFor(which)}`, {
         method: "PUT",
-        body: JSON.stringify({ stress, word, ...(asksManual ? manual : {}), utc_offset_minutes: utcOffsetMinutes() }),
+        body: JSON.stringify({ stress, word, energy, ...(asksManual ? manual : {}), utc_offset_minutes: utcOffsetMinutes() }),
       });
       setMessage("Saved. You can change it until the day ends.");
       if (which === "today") {
@@ -166,6 +170,25 @@ export default function DailyCheckInScreen({ userId, onBack }: Props) {
               className={chip(word === w)}
             >
               {w}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-base text-ink text-center">What took your energy today?</h2>
+        <p className="text-[11px] text-dim text-center mb-2">Optional. Pick any that apply.</p>
+        <div className="flex flex-wrap gap-2 justify-center" role="group" aria-label="What took your energy today">
+          {ENERGY.map((tag) => (
+            <button
+              key={tag}
+              type="button"
+              aria-pressed={energy.includes(tag)}
+              onClick={() => setEnergy((cur) => (cur.includes(tag) ? cur.filter((t) => t !== tag) : [...cur, tag]))}
+              disabled={loading}
+              className={chip(energy.includes(tag))}
+            >
+              {tag}
             </button>
           ))}
         </div>

@@ -13,6 +13,7 @@ const BASE: Summary = {
   recent_7d: null,
   today_vs_usual: null,
   recent_words: [],
+  recent_energy: [],
   streak: { current: 0, best: 0, status: "none" },
   support_suggested: false,
   why: { ready: false, have: 0, need: 7, today: null, week: null },
@@ -26,6 +27,7 @@ const READY: Summary = {
   recent_7d: { value: 3, based_on: 7, days: 7 },
   today_checkin: { stress: 2, word: "Calm" },
   recent_words: WORDS.map((word, i) => ({ word, count: i % 3 + 1 })),
+  recent_energy: [],
   why: { ready: true, have: 12, need: 7, today: "lower", week: "lower" },
 };
 

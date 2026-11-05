@@ -28,6 +28,7 @@ describe("privacy page", () => {
     "starting-point answers",
     "stress from 0 to 10",
     "word of the day",
+    "what took your energy",
     "sleep hours",
     "sleep quality",
     "activity",

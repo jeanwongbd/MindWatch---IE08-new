@@ -57,7 +57,7 @@ describe("sleep and activity in the check-in, for people with no smart watch", (
     tap("5");
     tap("Save check-in");
     await screen.findByText(/Saved\./);
-    expect(putBody(spy)).toEqual({ stress: 5, word: null, utc_offset_minutes: utcOffsetMinutes() });
+    expect(putBody(spy)).toEqual({ stress: 5, word: null, energy: [], utc_offset_minutes: utcOffsetMinutes() });
   });
 
   it("people with no watch are asked all three, as optional questions", async () => {
@@ -80,6 +80,7 @@ describe("sleep and activity in the check-in, for people with no smart watch", (
     expect(putBody(spy)).toEqual({
       stress: 5,
       word: null,
+      energy: [],
       sleep_hours: "6_7",
       sleep_quality: "fair",
       activity: "lightly_active",
@@ -132,7 +133,7 @@ describe("sleep and activity in the check-in, for people with no smart watch", (
     tap("5");
     tap("Save check-in");
     await screen.findByText(/Saved\./);
-    expect(putBody(spy)).toEqual({ stress: 5, word: null, utc_offset_minutes: utcOffsetMinutes() });
+    expect(putBody(spy)).toEqual({ stress: 5, word: null, energy: [], utc_offset_minutes: utcOffsetMinutes() });
   });
 });
 
