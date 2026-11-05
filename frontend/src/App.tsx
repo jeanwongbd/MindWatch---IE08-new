@@ -11,6 +11,7 @@ import PersonalWhyScreen from "./screens/PersonalWhyScreen";
 import RemindersScreen from "./screens/RemindersScreen";
 import WatchScreen from "./screens/WatchScreen";
 import AccountScreen from "./screens/AccountScreen";
+import JournalScreen from "./screens/JournalScreen";
 import SupportScreen from "./screens/SupportScreen";
 import { reminders } from "./remindersService";
 import { clearPrefs } from "./reminders";
@@ -24,7 +25,7 @@ import { clearToken, getToken, onSessionExpired, setToken } from "./session";
 import { useServerWaking } from "./useServerWaking";
 import { utcOffsetMinutes } from "./checkinWords";
 
-type View = "welcome" | "signin" | "calibration" | "consent" | "signup" | "home" | "checkin" | "trends" | "why" | "reminders" | "watch" | "account" | "support";
+type View = "welcome" | "signin" | "calibration" | "consent" | "signup" | "home" | "checkin" | "trends" | "why" | "reminders" | "watch" | "account" | "journal" | "support";
 
 const EXPIRED = "Your session expired. Please sign in again.";
 
@@ -246,6 +247,7 @@ export default function App() {
         onReminders={() => setView("reminders")}
         onWatch={() => setView("watch")}
         onAccount={() => setView("account")}
+        onJournal={() => setView("journal")}
         onSupport={() => openSupport("home")}
         onSignOut={signOut}
       />
@@ -253,6 +255,8 @@ export default function App() {
   if (view === "checkin" && user) return <DailyCheckInScreen userId={user.id} onBack={() => setView("home")} />;
   if (view === "reminders" && user) return <RemindersScreen userId={user.id} onBack={() => setView("home")} />;
   if (view === "watch" && user) return <WatchScreen userId={user.id} onBack={() => setView("home")} />;
+  if (view === "journal" && user)
+    return <JournalScreen onBack={() => setView("home")} onSupport={() => openSupport("journal")} />;
   if (view === "account" && user)
     return (
       <AccountScreen

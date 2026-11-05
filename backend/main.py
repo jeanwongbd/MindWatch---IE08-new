@@ -21,6 +21,7 @@ import numpy as np
 from backend.account import router as account_router
 from backend.auth import router as auth_router
 from backend.checkins import router as checkins_router
+from backend.journal import router as journal_router
 from backend.db import make_engine, run_migrations
 from backend.measurements import router as measurements_router
 from backend.summary import router as summary_router
@@ -454,6 +455,7 @@ def create_app(model_path=None, state_path=None, settings=None):
     app.state.invite_codes = settings.invite_codes
     app.include_router(auth_router)
     app.include_router(checkins_router)
+    app.include_router(journal_router)
     app.include_router(summary_router)
     app.include_router(measurements_router)
     app.include_router(account_router)

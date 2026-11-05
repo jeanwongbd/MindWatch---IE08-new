@@ -14,6 +14,7 @@ interface Props {
   onReminders: () => void;
   onWatch: () => void;
   onAccount: () => void;
+  onJournal: () => void;
   onSupport: () => void;
   onSignOut: () => void;
 }
@@ -53,7 +54,7 @@ const secondaryButtonClass =
   "w-full py-3.5 border border-border text-ink rounded-2xl hover:opacity-90 active:opacity-80 transition-opacity";
 
 /** The signed-in Home. Plain descriptions of the person's own check-ins, never a cause or a prediction. */
-export default function HomeScreen({ user, onCheckIn, onTrends, onWhy, onReminders, onWatch, onAccount, onSupport, onSignOut }: Props) {
+export default function HomeScreen({ user, onCheckIn, onTrends, onWhy, onReminders, onWatch, onAccount, onJournal, onSupport, onSignOut }: Props) {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
@@ -212,6 +213,9 @@ export default function HomeScreen({ user, onCheckIn, onTrends, onWhy, onReminde
       </button>
       <button onClick={onReminders} className={secondaryButtonClass} style={{ fontWeight: 500 }}>
         Reminders
+      </button>
+      <button onClick={onJournal} className={secondaryButtonClass} style={{ fontWeight: 500 }}>
+        Journal
       </button>
       <button onClick={onAccount} className={secondaryButtonClass} style={{ fontWeight: 500 }}>
         Account

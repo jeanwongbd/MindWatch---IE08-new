@@ -26,6 +26,7 @@ from backend.models import (
     Checkin,
     Consent,
     DailyMeasurement,
+    JournalEntry,
     LoginFailure,
     User,
     UserModel,
@@ -133,7 +134,7 @@ def delete_user_data(db: Session, user_id: str, email: str) -> None:
     Each table is cleared by name, not left to the database cascade, so that every row goes
     on any database. The user row is last because the others point at it.
     """
-    for model in (Checkin, DailyMeasurement, UserModel, CalibrationAnswers, Consent, UserSession):
+    for model in (Checkin, DailyMeasurement, JournalEntry, UserModel, CalibrationAnswers, Consent, UserSession):
         db.execute(delete(model).where(model.user_id == user_id))
     db.execute(delete(LoginFailure).where(LoginFailure.email == email))
     db.execute(delete(User).where(User.id == user_id))
