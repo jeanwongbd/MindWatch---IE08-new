@@ -44,7 +44,7 @@ describe("sample account", () => {
     tap(TRY);
     expect(await screen.findByText(/Sample account\./)).toBeTruthy();
     expect(localStorage.getItem(TOKEN_KEY)).toBe("sample-token");
-    await screen.findByText(/Your usual: 1.2 out of 10/);
+    await screen.findByRole("group", { name: "Your usual" }).then((g) => expect(g.textContent).toMatch(/1.2.*out of 10/));
   });
 
   it("sample_sends_utc_offset", async () => {
@@ -54,7 +54,7 @@ describe("sample account", () => {
     });
     await loadApp();
     tap(TRY);
-    await screen.findByText(/Your usual: 1.2 out of 10/);
+    await screen.findByRole("group", { name: "Your usual" }).then((g) => expect(g.textContent).toMatch(/1.2.*out of 10/));
     const [, init] = callsTo(spy, "POST /auth/sample")[0];
     expect(JSON.parse(String(init?.body))).toEqual({ utc_offset_minutes: utcOffsetMinutes() });
   });
@@ -66,7 +66,7 @@ describe("sample account", () => {
     });
     await loadApp();
     tap(TRY);
-    await screen.findByText(/Your usual: 1.2 out of 10/);
+    await screen.findByRole("group", { name: "Your usual" }).then((g) => expect(g.textContent).toMatch(/1.2.*out of 10/));
     expect(screen.getByRole("button", { name: /Change today's check-in/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Reminders" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Account" })).toBeTruthy();
@@ -94,7 +94,7 @@ describe("sample account", () => {
     });
     await loadApp();
     tap(TRY);
-    await screen.findByText(/Your usual: 1.2 out of 10/);
+    await screen.findByRole("group", { name: "Your usual" }).then((g) => expect(g.textContent).toMatch(/1.2.*out of 10/));
     tap("Account");
     tap("Delete my account");
     expect(screen.queryByLabelText(/password/i)).toBeNull();
@@ -112,7 +112,7 @@ describe("sample account", () => {
     });
     await loadApp();
     tap(TRY);
-    await screen.findByText(/Your usual: 1.2 out of 10/);
+    await screen.findByRole("group", { name: "Your usual" }).then((g) => expect(g.textContent).toMatch(/1.2.*out of 10/));
     tap("Account");
     expect(screen.getByText("Sample accounts have no password.")).toBeTruthy();
     expect(screen.queryByRole("form", { name: "Change password" })).toBeNull();
@@ -127,7 +127,7 @@ describe("sample account", () => {
       "POST /me/delete": { status: 204 },
     });
     await loadApp();
-    await screen.findByText(/Your usual: 1.2 out of 10/);
+    await screen.findByRole("group", { name: "Your usual" }).then((g) => expect(g.textContent).toMatch(/1.2.*out of 10/));
     tap("Account");
     expect(screen.getByRole("form", { name: "Change password" })).toBeTruthy();
     tap("Delete my account");
@@ -172,7 +172,7 @@ describe("sample account", () => {
       "GET /me/summary": { body: SUMMARY },
     });
     await loadApp();
-    await screen.findByText(/Your usual: 1.2 out of 10/);
+    await screen.findByRole("group", { name: "Your usual" }).then((g) => expect(g.textContent).toMatch(/1.2.*out of 10/));
     expect(screen.queryByText(/Sample account\./)).toBeNull();
     expect(screen.getByRole("button", { name: /Change today's check-in/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Account" })).toBeTruthy();

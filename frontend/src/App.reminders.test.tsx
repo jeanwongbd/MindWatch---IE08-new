@@ -271,8 +271,14 @@ describe("signing out", () => {
   it("an expired session cancels them too", async () => {
     phone.state.permission = "granted";
     localStorage.setItem(PREFS_KEY, JSON.stringify({ enabled: true, time: "20:00", asked: true }));
-    await openHome(NOT_YET_TODAY, { "GET /me/checkins": { status: 401, body: { detail: "expired" } } });
+    await openHome(NOT_YET_TODAY, { "GET /me/checkins": { body: { checkins: [] } } });
     await waitFor(() => expect(phone.schedule).toHaveBeenCalled());
+    // Home has loaded; from now on the server says the session has expired.
+    stubBackend({
+      "GET /auth/me": { body: USER },
+      "GET /me/summary": { body: NOT_YET_TODAY },
+      "GET /me/checkins": { status: 401, body: { detail: "expired" } },
+    });
     phone.cancel.mockClear();
     tap("See your trends");
     expect(await screen.findByRole("heading", { name: "Sign in" })).toBeTruthy();

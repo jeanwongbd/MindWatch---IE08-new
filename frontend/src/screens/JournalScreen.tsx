@@ -24,7 +24,7 @@ function dayText(iso: string): string {
   return new Date(y, m - 1, d).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 }
 
-const secondaryButtonClass = "px-3 py-1.5 border border-border text-ink rounded-xl text-xs hover:opacity-90 disabled:opacity-50";
+const secondaryButtonClass = "px-3 py-1.5 bg-surface border border-border text-ink rounded-xl text-xs hover:opacity-90 disabled:opacity-50";
 
 interface Props {
   onBack: () => void;

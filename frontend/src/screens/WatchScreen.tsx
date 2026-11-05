@@ -9,7 +9,7 @@ interface Props {
 }
 
 const outline =
-  "w-full py-3 border border-border text-ink rounded-2xl text-sm hover:opacity-90 disabled:opacity-50";
+  "w-full py-3 bg-surface border border-border text-ink rounded-2xl text-sm hover:opacity-90 disabled:opacity-50";
 
 /** Connect or disconnect the watch data. Reads steps, sleep and heart rate, and nothing else. */
 export default function WatchScreen({ userId, onBack }: Props) {

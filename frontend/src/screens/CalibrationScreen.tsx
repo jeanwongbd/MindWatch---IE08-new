@@ -12,7 +12,7 @@ interface Props {
 
 const choiceClass = (selected: boolean) =>
   `w-full text-left px-4 py-3 rounded-2xl border text-sm transition-colors ${
-    selected ? "border-ink bg-ink text-background" : "border-border bg-input text-ink hover:border-ink"
+    selected ? "border-inverse bg-inverse text-on-inverse" : "border-border bg-input text-ink hover:border-ink"
   }`;
 
 export default function CalibrationScreen({ answers, initialStep, onChange, onDone, onBack }: Props) {
@@ -33,7 +33,7 @@ export default function CalibrationScreen({ answers, initialStep, onChange, onDo
         </p>
         <div className="h-1 bg-border rounded mt-1.5" aria-hidden="true">
           <div
-            className="h-1 bg-ink rounded transition-all"
+            className="h-1 bg-inverse rounded transition-all"
             style={{ width: `${((step + 1) / QUESTIONS.length) * 100}%` }}
           />
         </div>
@@ -51,7 +51,7 @@ export default function CalibrationScreen({ answers, initialStep, onChange, onDo
                 aria-pressed={current === n}
                 onClick={() => pick(n)}
                 className={`py-2.5 rounded-xl border text-sm ${
-                  current === n ? "border-ink bg-ink text-background" : "border-border bg-input text-ink"
+                  current === n ? "border-inverse bg-inverse text-on-inverse" : "border-border bg-input text-ink"
                 }`}
               >
                 {n}

@@ -64,7 +64,7 @@ export function ReminderOffer({ userId }: { userId: string }) {
           type="button"
           onClick={yes}
           disabled={busy}
-          className="flex-1 py-2.5 bg-ink text-background rounded-2xl text-sm disabled:opacity-50"
+          className="flex-1 py-2.5 bg-inverse text-on-inverse rounded-2xl text-sm disabled:opacity-50"
         >
           Yes, remind me
         </button>

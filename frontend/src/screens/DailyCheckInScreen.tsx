@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ApiError, api } from "../api";
 import { ENERGY, WORDS, dayBefore, localDate, utcOffsetMinutes } from "../checkinWords";
+import { WORD_CHIP, chipClass, energyChip } from "../chips";
 import { MANUAL_QUESTIONS, type ManualId } from "../manualQuestions";
 import { reminders } from "../remindersService";
 import AuthFrame, { friendlyError, linkButtonClass, primaryButtonClass } from "./AuthFrame";
@@ -24,8 +25,15 @@ const dayFor = (which: Which) => (which === "today" ? localDate() : dayBefore(lo
 
 const chip = (selected: boolean) =>
   `px-3 py-2 rounded-full border text-sm ${
-    selected ? "border-ink bg-ink text-background" : "border-border bg-input text-ink"
+    selected ? "border-inverse bg-inverse text-on-inverse" : "border-border bg-transparent text-muted"
   }`;
+
+type ChipColour = { background: string; color: string };
+/** Word and energy chips: coloured when selected, plain outline otherwise. */
+const colourChip = (selected: boolean, colour: ChipColour) => ({
+  className: selected ? `${chipClass} border border-transparent` : `${chipClass} border border-border bg-transparent text-muted`,
+  style: selected ? { background: colour.background, color: colour.color } : undefined,
+});
 
 interface Props {
   userId: string;
@@ -143,7 +151,7 @@ export default function DailyCheckInScreen({ userId, onBack }: Props) {
               onClick={() => setStress(n)}
               disabled={loading}
               className={`py-2.5 rounded-xl border text-sm ${
-                stress === n ? "border-ink bg-ink text-background" : "border-border bg-input text-ink"
+                stress === n ? "border-inverse bg-inverse text-on-inverse" : "border-border bg-surface text-ink"
               }`}
             >
               {n}
@@ -167,7 +175,7 @@ export default function DailyCheckInScreen({ userId, onBack }: Props) {
               aria-pressed={word === w}
               onClick={() => setWord(word === w ? null : w)}
               disabled={loading}
-              className={chip(word === w)}
+              {...colourChip(word === w, WORD_CHIP)}
             >
               {w}
             </button>
@@ -186,7 +194,7 @@ export default function DailyCheckInScreen({ userId, onBack }: Props) {
               aria-pressed={energy.includes(tag)}
               onClick={() => setEnergy((cur) => (cur.includes(tag) ? cur.filter((t) => t !== tag) : [...cur, tag]))}
               disabled={loading}
-              className={chip(energy.includes(tag))}
+              {...colourChip(energy.includes(tag), energyChip(tag))}
             >
               {tag}
             </button>
