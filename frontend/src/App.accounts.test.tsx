@@ -27,7 +27,7 @@ describe("account buttons", () => {
   it("are hidden unless accounts are switched on", async () => {
     stubBackend({});
     await loadApp(false);
-    expect(screen.getByRole("button", { name: "View demo" })).toBeTruthy();
+    expect(screen.getByText("MindWatch")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Sign in" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Get started" })).toBeNull();
   });
@@ -36,7 +36,7 @@ describe("account buttons", () => {
     localStorage.setItem(TOKEN_KEY, "old");
     const spy = stubBackend({});
     await loadApp(false);
-    expect(screen.getByRole("button", { name: "View demo" })).toBeTruthy();
+    expect(screen.getByText("MindWatch")).toBeTruthy();
     expect(spy).not.toHaveBeenCalled();
   });
 });
@@ -189,7 +189,7 @@ describe("signing out", () => {
   it("ends the session on the server and forgets it here", async () => {
     const spy = await signedInApp({ "POST /auth/logout": { status: 204 } });
     fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
-    expect(await screen.findByRole("button", { name: "View demo" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Sign in" })).toBeTruthy();
     expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
     const [, init] = callsTo(spy, "POST /auth/logout")[0];
     expect((init!.headers as Record<string, string>).Authorization).toBe("Bearer saved-token");
@@ -199,13 +199,13 @@ describe("signing out", () => {
     await signedInApp({ "POST /auth/logout": "network-error" });
     fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
     await waitFor(() => expect(localStorage.getItem(TOKEN_KEY)).toBeNull());
-    expect(await screen.findByRole("button", { name: "View demo" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Sign in" })).toBeTruthy();
   });
 
   it("a rejected logout does not show the expired-session message", async () => {
     await signedInApp({ "POST /auth/logout": { status: 401, body: { detail: "Not signed in." } } });
     fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
-    expect(await screen.findByRole("button", { name: "View demo" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Sign in" })).toBeTruthy();
     expect(screen.queryByText("Your session expired. Please sign in again.")).toBeNull();
   });
 });

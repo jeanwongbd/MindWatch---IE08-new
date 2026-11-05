@@ -262,7 +262,7 @@ describe("signing out", () => {
     await waitFor(() => expect(phone.schedule).toHaveBeenCalled());
     phone.cancel.mockClear();
     tap("Sign out");
-    expect(await screen.findByRole("button", { name: "View demo" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Sign in" })).toBeTruthy();
     expect(idsOf(phone.cancel.mock.calls.map((c) => c[0]))).toEqual(ALL_IDS);
     expect(JSON.parse(localStorage.getItem(PREFS_KEY)!)).toMatchObject({ enabled: true, time: "19:00" });
   });
