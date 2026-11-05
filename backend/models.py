@@ -132,3 +132,25 @@ class DailyMeasurement(Base):
     heart_rate_avg: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class UserModel(Base):
+    """One person's trained stress model, as plain numbers. Never shared between people.
+
+    `params` is empty unless the model is ready. `reason` says in a word why it is not.
+    """
+
+    __tablename__ = "user_models"
+    __table_args__ = (CheckConstraint("status IN ('ready', 'not_ready')", name="ck_user_models_status"),)
+
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    reason: Mapped[str] = mapped_column(String(40), nullable=False)
+    trained_on: Mapped[int] = mapped_column(Integer, nullable=False)
+    holdout_days: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
+    model_error: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    average_error: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    params: Mapped[Optional[dict]] = mapped_column(JSON(none_as_null=True), nullable=True)
+    trained_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
