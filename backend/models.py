@@ -14,6 +14,7 @@ from sqlalchemy import (
     Integer,
     SmallInteger,
     String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy import false as sa_false
@@ -159,3 +160,19 @@ class UserModel(Base):
     average_error: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     params: Mapped[Optional[dict]] = mapped_column(JSON(none_as_null=True), nullable=True)
     trained_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class JournalEntry(Base):
+    """A private free-text note. Only its owner reads it; nothing else in the app uses it."""
+
+    __tablename__ = "journal_entries"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    # The phone-local date the entry was first written. Editing never changes it.
+    date: Mapped[dt.date] = mapped_column(Date, nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

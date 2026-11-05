@@ -225,7 +225,7 @@ class ExportMyData(AccountCase):
             self.assertNotIn(private, text.lower(), private)
         self.assertEqual(
             sorted(json.loads(text)),
-            ["account", "check_ins", "consent", "exported_at", "starting_point_answers", "watch_data"],
+            ["account", "check_ins", "consent", "exported_at", "journal", "starting_point_answers", "watch_data"],
         )
 
     def test_export_is_a_download_and_works_with_no_check_ins(self):

@@ -19,6 +19,7 @@ from backend.models import (
     Checkin,
     Consent,
     DailyMeasurement,
+    JournalEntry,
     User,
 )
 
@@ -50,6 +51,9 @@ def export_my_data(request: Request, user: User = Depends(current_user), db: Ses
     checkins = db.scalars(select(Checkin).where(Checkin.user_id == user.id).order_by(Checkin.date)).all()
     measurements = db.scalars(
         select(DailyMeasurement).where(DailyMeasurement.user_id == user.id).order_by(DailyMeasurement.date)
+    ).all()
+    journal = db.scalars(
+        select(JournalEntry).where(JournalEntry.user_id == user.id).order_by(JournalEntry.created_at, JournalEntry.id)
     ).all()
     body = {
         "exported_at": _when(now(request)),
@@ -93,6 +97,16 @@ def export_my_data(request: Request, user: User = Depends(current_user), db: Ses
                 "saved_at": _when(m.updated_at),
             }
             for m in measurements
+        ],
+        "journal": [
+            {
+                "id": j.id,
+                "date": j.date.isoformat(),
+                "text": j.text,
+                "created_at": _when(j.created_at),
+                "updated_at": _when(j.updated_at),
+            }
+            for j in journal
         ],
     }
     return JSONResponse(body, headers={"Content-Disposition": 'attachment; filename="mindwatch-my-data.json"'})
