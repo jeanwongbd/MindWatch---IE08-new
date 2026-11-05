@@ -7,6 +7,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from backend.auth import MAX_SAMPLE_COPIES
 from backend.main import create_app
 from backend.scripts.seed_demo_user import CHECKINS, SAMPLE_EMAIL, seed, study_rows
 from backend.settings import Settings
@@ -32,11 +33,6 @@ class SampleAccount(unittest.TestCase):
     def seed(self):
         return seed(self.app.state.engine, TODAY)
 
-    def sample_headers(self):
-        response = self.client.post("/auth/sample")
-        self.assertEqual(response.status_code, 200)
-        return {"Authorization": f"Bearer {response.json()['token']}"}
-
     def rows(self, sql):
         with closing(sqlite3.connect(self.db_path)) as conn:
             return conn.execute(sql).fetchall()
@@ -60,34 +56,220 @@ class SampleAccount(unittest.TestCase):
     def test_sample_is_not_set_up_until_seeded(self):
         self.assertEqual(self.client.post("/auth/sample").status_code, 404)
 
-    def test_demo_user_is_read_only(self):
+    def copy_session(self, offset=None):
+        response = self.client.post("/auth/sample", json=None if offset is None else {"utc_offset_minutes": offset})
+        self.assertEqual(response.status_code, 200)
+        return response.json()
+
+    def summary(self, headers, offset=0):
+        return self.client.get(f"/me/summary?utc_offset_minutes={offset}", headers=headers).json()
+
+    def put_checkin(self, headers, day, stress=6):
+        body = {"stress": stress, "word": None, "utc_offset_minutes": 0}
+        return self.client.put(f"/me/checkins/{day}", json=body, headers=headers)
+
+    def test_each_visit_gets_its_own_copy(self):
+        template_id = self.seed()
+        first, second = self.copy_session(), self.copy_session()
+        self.assertNotEqual(first["user"]["id"], second["user"]["id"])
+        self.assertNotIn(template_id, (first["user"]["id"], second["user"]["id"]))
+        self.assertNotEqual(first["token"], second["token"])
+        for visit in (first, second):
+            user = visit["user"]
+            self.assertTrue(user["is_sample"])
+            self.assertRegex(user["email"], r"^sample-[0-9a-f]+@mindwatch\.example\.com$")
+            self.assertEqual(user["sample_expires_at"], (NOON + timedelta(days=1)).isoformat())
+            self.assertEqual(visit["expires_at"], (NOON + timedelta(days=1)).isoformat())
+        self.assertEqual(self.rows("select count(*) from users where is_sample = 1"), [(1,)])
+        self.assertEqual(self.rows("select count(*) from users where sample_expires_at is not null"), [(2,)])
+        # Copies hold no password, so the password login cannot reach them.
+        login = self.client.post("/auth/login", json={"email": first["user"]["email"], "password": PASSWORD})
+        self.assertEqual(login.status_code, 401)
+        me = self.client.get("/auth/me", headers={"Authorization": f"Bearer {first['token']}"}).json()
+        self.assertEqual(me, first["user"])
+
+    def test_sample_without_body_still_works(self):
         self.seed()
-        headers = self.sample_headers()
-        self.assertEqual(self.client.get("/auth/me", headers=headers).json()["is_sample"], True)
+        for kwargs in ({}, {"json": {}}, {"content": b""}):
+            self.assertEqual(self.client.post("/auth/sample", **kwargs).status_code, 200)
+        self.assertEqual(self.client.post("/auth/sample", json={"utc_offset_minutes": 900}).status_code, 422)
+
+    def test_copies_cannot_see_each_other(self):
+        self.seed()
+        a, b = self.copy_session(), self.copy_session()
+        ha, hb = ({"Authorization": f"Bearer {v['token']}"} for v in (a, b))
+        yesterday = (TODAY - timedelta(days=1)).isoformat()
+        before = self.client.get("/me/checkins?limit=366", headers=hb).json()
+        self.assertEqual(self.put_checkin(ha, TODAY.isoformat(), 9).status_code, 201)
+        self.assertEqual(self.put_checkin(ha, yesterday, 0).status_code, 200)
+        self.assertEqual(self.client.get("/me/checkins?limit=366", headers=hb).json(), before)
+        self.assertEqual(self.client.get(f"/me/checkins/{TODAY}", headers=hb).status_code, 404)
+        self.assertEqual(self.summary(hb)["count"], CHECKINS)
+        self.assertEqual(self.summary(ha)["count"], CHECKINS + 1)
+
+    def test_copy_has_30_day_streak_ending_yesterday(self):
+        self.seed()
+        headers = {"Authorization": f"Bearer {self.copy_session()['token']}"}
+        summary = self.summary(headers)
+        self.assertEqual(summary["streak"]["current"], 30)
+        self.assertEqual(summary["streak"]["status"], "waiting")
+        self.assertIsNone(summary["today_checkin"])
+        self.assertEqual(summary["count"], CHECKINS)
+        days = [c["date"] for c in self.client.get("/me/checkins?limit=366", headers=headers).json()["checkins"]]
+        self.assertEqual(len(days), CHECKINS)
+        self.assertEqual(max(days), (TODAY - timedelta(days=1)).isoformat())
+        self.assertEqual(min(days), (TODAY - timedelta(days=30)).isoformat())
+
+    def test_checkin_today_makes_the_streak_31(self):
+        self.seed()
+        headers = {"Authorization": f"Bearer {self.copy_session()['token']}"}
+        self.assertEqual(self.put_checkin(headers, TODAY.isoformat()).status_code, 201)
+        summary = self.summary(headers)
+        self.assertEqual((summary["streak"]["current"], summary["streak"]["status"]), (31, "building"))
+
+    def test_copy_keeps_the_study_values_in_order(self):
+        self.seed()
+        template = self.rows("select stress from checkins where user_id in (select id from users where is_sample = 1) order by date")
+        self.copy_session()
+        copy = self.rows("select stress from checkins where user_id in (select id from users where sample_expires_at is not null) order by date")
+        self.assertEqual(copy, template)
+        steps_of = lambda who: self.rows(
+            f"select steps from daily_measurements where user_id in (select id from users where {who}) order by date"
+        )
+        self.assertEqual(steps_of("sample_expires_at is not null"), steps_of("is_sample = 1"))
+
+    def test_utc_offset_decides_yesterday(self):
+        self.seed()
+        # 12:00 UTC on Jan 15 is already Jan 16 at +14:00 (840), so yesterday there is Jan 15.
+        for offset, last in ((0, date(2026, 1, 14)), (840, date(2026, 1, 15)), (-720, date(2026, 1, 14))):
+            visit = self.copy_session(offset)
+            headers = {"Authorization": f"Bearer {visit['token']}"}
+            days = [c["date"] for c in self.client.get("/me/checkins?limit=366", headers=headers).json()["checkins"]]
+            self.assertEqual(max(days), last.isoformat())
+            self.assertEqual(self.summary(headers, offset)["streak"]["current"], 30)
+
+    def test_copy_changes_never_touch_the_template(self):
+        template_id = self.seed()
+        template_rows = self.rows("select date, stress from checkins where user_id in (select id from users where is_sample = 1) order by date")
+        visit = self.copy_session()
+        headers = {"Authorization": f"Bearer {visit['token']}"}
+        self.assertEqual(self.put_checkin(headers, TODAY.isoformat(), 10).status_code, 201)
+        measurement = {"utc_offset_minutes": 0, "days": [{"date": TODAY.isoformat(), "steps": 5}]}
+        self.assertEqual(self.client.put("/me/measurements", json=measurement, headers=headers).status_code, 200)
+        self.assertEqual(self.client.post("/me/delete", json={}, headers=headers).status_code, 204)
+        after = self.rows("select date, stress from checkins where user_id in (select id from users where is_sample = 1) order by date")
+        self.assertEqual(after, template_rows)
+        self.assertEqual(self.rows(f"select count(*) from users where id = '{template_id}'"), [(1,)])
+        self.assertEqual(self.rows("select count(*) from user_models"), [(1,)])
+
+    def test_template_is_still_read_only(self):
+        template_id = self.seed()
+        # Nobody gets a session on the template any more, so make one directly to prove the lock holds.
+        from sqlalchemy.orm import Session
+        from backend.auth import start_session
+        from backend.models import User
+
+        with Session(self.app.state.engine) as db:
+            token = start_session(db, db.get(User, template_id), NOON, days=1)["token"]
+        headers = {"Authorization": f"Bearer {token}"}
+        me = self.client.get("/auth/me", headers=headers).json()
+        self.assertEqual((me["is_sample"], me["sample_expires_at"]), (True, None))
         self.assertEqual(self.client.get("/me/checkins", headers=headers).status_code, 200)
-        self.assertEqual(self.client.get("/me/export", headers=headers).status_code, 200)
-        body = {"stress": 9, "word": None, "utc_offset_minutes": 0}
-        before = self.rows("select count(*) from checkins")
-        self.assertEqual(self.client.put(f"/me/checkins/{TODAY}", json=body, headers=headers).status_code, 403)
+        self.assertEqual(self.put_checkin(headers, TODAY.isoformat(), 9).status_code, 403)
         measurement = {"utc_offset_minutes": 0, "days": [{"date": TODAY.isoformat(), "steps": 5}]}
         self.assertEqual(self.client.put("/me/measurements", json=measurement, headers=headers).status_code, 403)
         self.assertEqual(self.client.post("/me/delete", json={"password": "x"}, headers=headers).status_code, 403)
         change = {"current_password": "x", "new_password": "a brand new password"}
         self.assertEqual(self.client.post("/auth/password", json=change, headers=headers).status_code, 403)
-        self.assertEqual(self.rows("select count(*) from checkins"), before)
         self.assertEqual(self.rows("select count(*) from users where is_sample = 1"), [(1,)])
+
+    def test_copy_can_be_deleted_without_a_password(self):
+        self.seed()
+        visit = self.copy_session()
+        headers = {"Authorization": f"Bearer {visit['token']}"}
+        self.assertEqual(self.client.get("/me/export", headers=headers).status_code, 200)
+        change = {"current_password": "x", "new_password": "a brand new password"}
+        changed = self.client.post("/auth/password", json=change, headers=headers)
+        self.assertEqual(changed.status_code, 400)
+        self.assertIn("no password", changed.json()["detail"])
+        self.assertEqual(self.client.post("/me/delete", json={}, headers=headers).status_code, 204)
+        uid = visit["user"]["id"]
+        for table in ("users", "checkins", "daily_measurements", "user_models", "calibration_answers", "sessions"):
+            column = "id" if table == "users" else "user_id"
+            self.assertEqual(self.rows(f"select count(*) from {table} where {column} = '{uid}'"), [(0,)], table)
+        self.assertEqual(self.client.get("/auth/me", headers=headers).status_code, 401)
+
+    def test_real_users_still_need_their_password_to_delete(self):
+        self.seed()
+        token = self.client.post("/auth/signup", json=signup_body(email="bob@example.com")).json()["token"]
+        headers = {"Authorization": f"Bearer {token}"}
+        self.assertEqual(self.client.post("/me/delete", json={}, headers=headers).status_code, 422)
+        self.assertEqual(self.client.post("/me/delete", json={"password": "wrong"}, headers=headers).status_code, 403)
+        self.assertEqual(self.client.post("/me/delete", json={"password": PASSWORD}, headers=headers).status_code, 204)
+
+    def test_expired_copy_stops_working(self):
+        self.seed()
+        visit = self.copy_session()
+        headers = {"Authorization": f"Bearer {visit['token']}"}
+        self.now = NOON + timedelta(hours=23)
+        self.assertEqual(self.client.get("/auth/me", headers=headers).status_code, 200)
+        self.now = NOON + timedelta(days=1)
+        self.assertEqual(self.client.get("/auth/me", headers=headers).status_code, 401)
+        self.assertEqual(self.client.get("/me/checkins", headers=headers).status_code, 401)
+
+    def test_expired_copies_are_removed(self):
+        self.seed()
+        old = self.copy_session()
+        self.now = NOON + timedelta(days=1, minutes=1)
+        fresh = self.copy_session()
+        old_id = old["user"]["id"]
+        for table in ("users", "checkins", "daily_measurements", "user_models", "calibration_answers", "sessions"):
+            column = "id" if table == "users" else "user_id"
+            self.assertEqual(self.rows(f"select count(*) from {table} where {column} = '{old_id}'"), [(0,)], table)
+        self.assertEqual(self.rows("select count(*) from users where sample_expires_at is not null"), [(1,)])
+        self.assertEqual(self.rows(f"select count(*) from checkins where user_id = '{fresh['user']['id']}'"), [(CHECKINS,)])
+        self.assertEqual(self.rows("select count(*) from users where is_sample = 1"), [(1,)])
+
+    def test_copy_limit_returns_429(self):
+        self.seed()
+        for _ in range(MAX_SAMPLE_COPIES):
+            self.copy_session()
+        full = self.client.post("/auth/sample")
+        self.assertEqual(full.status_code, 429)
+        self.assertEqual(full.json()["detail"], "Too many people are trying the sample right now. Please try again later.")
+        self.assertEqual(self.rows("select count(*) from users where sample_expires_at is not null"), [(MAX_SAMPLE_COPIES,)])
+        # Once the day is up, the old copies are cleared and a new visitor gets in.
+        self.now = NOON + timedelta(days=1)
+        self.assertEqual(self.client.post("/auth/sample").status_code, 200)
+        self.assertEqual(self.rows("select count(*) from users where sample_expires_at is not null"), [(1,)])
 
     def test_demo_runs_real_pipeline(self):
         self.seed()
-        headers = self.sample_headers()
-        summary = self.client.get("/me/summary?utc_offset_minutes=0", headers=headers).json()
+        headers = {"Authorization": f"Bearer {self.copy_session()['token']}"}
+        summary = self.summary(headers)
         self.assertEqual((summary["count"], summary["progress"]), (CHECKINS, {"done": CHECKINS, "goal": 30}))
         self.assertIsNone(summary["estimate"])
         # Training ran through the same code real check-ins use. Steps alone are not enough to fit.
         self.assertEqual(
-            self.rows("select status, reason, trained_on from user_models"),
+            self.rows(
+                "select status, reason, trained_on from user_models where user_id in "
+                "(select id from users where sample_expires_at is not null)"
+            ),
             [("not_ready", "not_enough_watch_data", CHECKINS)],
         )
+
+    def test_why_and_model_are_ready_in_a_copy(self):
+        self.seed()
+        headers = {"Authorization": f"Bearer {self.copy_session()['token']}"}
+        why = self.summary(headers)["why"]
+        self.assertTrue(why["ready"])
+        self.assertGreaterEqual(why["have"], why["need"])
+        models = self.rows(
+            "select trained_on from user_models where user_id in (select id from users where sample_expires_at is not null)"
+        )
+        self.assertEqual(models, [(CHECKINS,)])
+        setup = self.client.get("/me/checkins/setup", headers=headers).json()
+        self.assertEqual(setup, {"asks_sleep_activity": False, "wears_watch": True})
 
     def test_nobody_can_sign_in_to_the_sample_by_password_or_take_its_email(self):
         self.seed()
@@ -99,7 +281,9 @@ class SampleAccount(unittest.TestCase):
 
     def test_the_sample_session_lasts_one_day(self):
         self.seed()
-        headers = self.sample_headers()
+        visit = self.copy_session()
+        headers = {"Authorization": f"Bearer {visit['token']}"}
+        self.assertEqual(visit["expires_at"], (NOON + timedelta(days=1)).isoformat())
         self.now = NOON + timedelta(days=2)
         self.assertEqual(self.client.get("/auth/me", headers=headers).status_code, 401)
 
@@ -108,6 +292,7 @@ class SampleAccount(unittest.TestCase):
         response = self.client.post("/auth/signup", json=signup_body(email="alice@example.com"))
         self.assertEqual(response.status_code, 201)
         self.assertFalse(response.json()["user"]["is_sample"])
+        self.assertIsNone(response.json()["user"]["sample_expires_at"])
         headers = {"Authorization": f"Bearer {response.json()['token']}"}
         body = {"stress": 4, "word": None, "utc_offset_minutes": 0}
         self.assertEqual(self.client.put(f"/me/checkins/{TODAY}", json=body, headers=headers).status_code, 201)

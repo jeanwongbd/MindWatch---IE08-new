@@ -188,7 +188,7 @@ function DownloadMyData() {
   );
 }
 
-function DeleteAccount({ onDeleted }: { onDeleted: () => void }) {
+function DeleteAccount({ onDeleted, isSample }: { onDeleted: () => void; isSample: boolean }) {
   const [confirming, setConfirming] = useState(false);
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -199,7 +199,7 @@ function DeleteAccount({ onDeleted }: { onDeleted: () => void }) {
     setBusy(true);
     setError("");
     try {
-      await api("/me/delete", { method: "POST", body: JSON.stringify({ password }) });
+      await api("/me/delete", { method: "POST", body: JSON.stringify(isSample ? {} : { password }) });
       onDeleted();
     } catch (e) {
       setError(friendlyError(e));
@@ -223,12 +223,14 @@ function DeleteAccount({ onDeleted }: { onDeleted: () => void }) {
     <form onSubmit={submit} className={`${section} border-accent-stress`} aria-label="Confirm deleting my account">
       <h2 className="text-sm text-ink">Delete my account?</h2>
       <p className="text-sm text-ink">This permanently deletes your account and every check-in. This can't be undone.</p>
-      <div>
-        <label htmlFor="delete-password" className="block text-xs text-muted mb-1">
-          Type your password to confirm
-        </label>
-        <input id="delete-password" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} className={inputClass} />
-      </div>
+      {!isSample && (
+        <div>
+          <label htmlFor="delete-password" className="block text-xs text-muted mb-1">
+            Type your password to confirm
+          </label>
+          <input id="delete-password" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} className={inputClass} />
+        </div>
+      )}
       {error && (
         <p role="alert" className="text-xs text-accent-stress">
           {error}
@@ -265,9 +267,13 @@ export default function AccountScreen({ user, onBack, onSupport, onDeleted }: Pr
       <p className="text-xs text-muted text-center">
         Signed in as <span className="text-ink">{user.email}</span>
       </p>
-      <ChangePassword />
+      {user.is_sample ? (
+        <p className="text-xs text-muted text-center">Sample accounts have no password.</p>
+      ) : (
+        <ChangePassword />
+      )}
       <DownloadMyData />
-      <DeleteAccount onDeleted={onDeleted} />
+      <DeleteAccount onDeleted={onDeleted} isSample={!!user.is_sample} />
       <div className="flex justify-between">
         <button type="button" onClick={onSupport} className={linkButtonClass}>
           Need support?

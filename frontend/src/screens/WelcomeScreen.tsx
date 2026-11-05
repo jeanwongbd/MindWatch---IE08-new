@@ -48,7 +48,7 @@ export default function WelcomeScreen({ onSignIn, onCreateAccount, onSample, onS
         {onSample && (
           <div>
             <button type="button" onClick={onSample} className="text-xs text-accent-calm hover:underline" style={{ fontWeight: 500 }}>
-              Look at a sample account
+              Try a 30-day sample account
             </button>
           </div>
         )}

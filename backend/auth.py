@@ -15,13 +15,22 @@ from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
 from email_validator import EmailNotValidError, validate_email
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, StrictInt
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.calibration import CONSENT_VERSIONS, QUESTIONS_VERSION, InvalidAnswers, validate_answers
-from backend.models import CalibrationAnswers, Consent, LoginFailure, User, UserSession
+from backend.models import (
+    CalibrationAnswers,
+    Checkin,
+    Consent,
+    DailyMeasurement,
+    LoginFailure,
+    User,
+    UserModel,
+    UserSession,
+)
 
 LOGGER = logging.getLogger("mindwatch")
 
@@ -30,6 +39,21 @@ MIN_PASSWORD = 10
 MAX_PASSWORD = 128
 MAX_FAILURES = 5
 LOCKOUT = timedelta(minutes=15)
+# Each visitor to the sample gets a private copy that lasts a day. This caps how many can exist at once.
+MAX_SAMPLE_COPIES = 50
+SAMPLE_COPY_DAYS = 1
+SAMPLE_EMAIL_DOMAIN = "mindwatch.example.com"
+# A copy has no password. Same marker the seeded template uses: it is not a valid hash, so nothing matches it.
+NO_PASSWORD = "!"
+# The starting-point answers given to a copy so the app treats it like someone who wears a watch.
+SAMPLE_ANSWERS = {
+    "usual_stress": 5,
+    "sleep_hours": "7_8",
+    "sleep_quality": "good",
+    "activity": "lightly_active",
+    "wears_watch": "yes",
+    "stress_time": "evening",
+}
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 _hasher = PasswordHasher()
@@ -51,6 +75,11 @@ class SignupIn(BaseModel):
     # Both are required: no account is created without recorded consent and starting-point answers.
     consent: ConsentIn
     calibration: Dict[str, Any]
+
+
+class SampleIn(BaseModel):
+    # The phone's offset from UTC in minutes. It decides which day is "yesterday" for the copy.
+    utc_offset_minutes: StrictInt = Field(0, ge=-720, le=840)
 
 
 class LoginIn(BaseModel):
@@ -83,6 +112,33 @@ def now(request: Request) -> datetime:
     return request.app.state.clock()
 
 
+def is_sample_copy(user: User) -> bool:
+    return user.sample_expires_at is not None
+
+
+def user_payload(user: User) -> dict:
+    """The user as the API shows it. Both the seeded template and private copies count as sample."""
+    expires = user.sample_expires_at
+    return {
+        "id": user.id,
+        "email": user.email,
+        "is_sample": bool(user.is_sample) or expires is not None,
+        "sample_expires_at": as_utc(expires).isoformat() if expires is not None else None,
+    }
+
+
+def delete_user_data(db: Session, user_id: str, email: str) -> None:
+    """Remove every row about one person. The caller commits.
+
+    Each table is cleared by name, not left to the database cascade, so that every row goes
+    on any database. The user row is last because the others point at it.
+    """
+    for model in (Checkin, DailyMeasurement, UserModel, CalibrationAnswers, Consent, UserSession):
+        db.execute(delete(model).where(model.user_id == user_id))
+    db.execute(delete(LoginFailure).where(LoginFailure.email == email))
+    db.execute(delete(User).where(User.id == user_id))
+
+
 def start_session(db: Session, user: User, current: datetime, days: int = SESSION_DAYS) -> dict:
     token = secrets.token_urlsafe(32)
     expires = current + timedelta(days=days)
@@ -99,7 +155,7 @@ def start_session(db: Session, user: User, current: datetime, days: int = SESSIO
     return {
         "token": token,
         "expires_at": expires.isoformat(),
-        "user": {"id": user.id, "email": user.email, "is_sample": user.is_sample},
+        "user": user_payload(user),
     }
 
 
@@ -130,7 +186,10 @@ def current_user(
     user = db.get(User, session.user_id)
     if user is None:
         raise HTTPException(401, "Not signed in.")
-    # The sample account is read-only. Checking here covers every route that uses this dependency.
+    # A sample copy stops working once its day is up, even if clean-up has not removed it yet.
+    if user.sample_expires_at is not None and as_utc(user.sample_expires_at) <= now(request):
+        raise HTTPException(401, "Session expired. Please sign in again.")
+    # Only the seeded template is read-only; copies are normal accounts. Checking here covers every route that uses this dependency.
     if user.is_sample and request.method not in ("GET", "HEAD", "OPTIONS"):
         raise HTTPException(403, "The sample account is read-only.")
     return user
@@ -279,12 +338,85 @@ def login(body: LoginIn, request: Request, db: Session = Depends(get_db)):
 
 
 @router.post("/sample")
-def start_sample(request: Request, db: Session = Depends(get_db)):
-    """Open the read-only sample account without a password. The session lasts one day."""
-    user = db.scalar(select(User).where(User.is_sample.is_(True)))
-    if user is None:
+def start_sample(request: Request, body: Optional[SampleIn] = None, db: Session = Depends(get_db)):
+    """Give the visitor a private copy of the sample account, with a session that lasts one day.
+
+    The copy's 30 check-ins end on the visitor's local yesterday, so a check-in today makes 31.
+    """
+    from backend.checkins import local_today, train_user_model  # checkins imports this module
+
+    template = db.scalar(select(User).where(User.is_sample.is_(True)))
+    if template is None:
         raise HTTPException(404, "The sample account is not set up.")
-    return start_session(db, user, now(request), days=1)
+    current = now(request)
+
+    copies = db.scalars(select(User).where(User.sample_expires_at.is_not(None))).all()
+    live = 0
+    for old in copies:
+        if as_utc(old.sample_expires_at) <= current:
+            delete_user_data(db, old.id, old.email)
+            LOGGER.info("sample copy removed user_id=%s", old.id)
+        else:
+            live += 1
+    db.commit()
+    if live >= MAX_SAMPLE_COPIES:
+        raise HTTPException(429, "Too many people are trying the sample right now. Please try again later.")
+
+    offset = body.utc_offset_minutes if body is not None else 0
+    yesterday = local_today(current, offset) - timedelta(days=1)
+    user = User(
+        id=str(uuid.uuid4()),
+        email=f"sample-{secrets.token_hex(8)}@{SAMPLE_EMAIL_DOMAIN}",
+        password_hash=NO_PASSWORD,
+        created_at=current,
+        sample_expires_at=current + timedelta(days=SAMPLE_COPY_DAYS),
+    )
+    db.add(user)
+    db.flush()
+
+    source = db.scalars(select(Checkin).where(Checkin.user_id == template.id).order_by(Checkin.date)).all()
+    new_day = {}
+    first = yesterday - timedelta(days=len(source) - 1)
+    for i, row in enumerate(source):
+        new_day[row.date] = first + timedelta(days=i)
+        db.add(
+            Checkin(
+                id=str(uuid.uuid4()),
+                user_id=user.id,
+                date=new_day[row.date],
+                stress=row.stress,
+                word=row.word,
+                sleep_hours=row.sleep_hours,
+                sleep_quality=row.sleep_quality,
+                activity=row.activity,
+                created_at=current,
+                updated_at=current,
+            )
+        )
+    for m in db.scalars(select(DailyMeasurement).where(DailyMeasurement.user_id == template.id)).all():
+        if m.date in new_day:
+            db.add(
+                DailyMeasurement(
+                    id=str(uuid.uuid4()),
+                    user_id=user.id,
+                    date=new_day[m.date],
+                    steps=m.steps,
+                    sleep_minutes=m.sleep_minutes,
+                    heart_rate_avg=m.heart_rate_avg,
+                    created_at=current,
+                    updated_at=current,
+                )
+            )
+    template_answers = db.get(CalibrationAnswers, template.id)
+    if template_answers is not None:
+        version, answers = template_answers.questions_version, dict(template_answers.answers)
+    else:
+        version, answers = QUESTIONS_VERSION, validate_answers(dict(SAMPLE_ANSWERS))
+    db.add(CalibrationAnswers(user_id=user.id, questions_version=version, answers=answers, created_at=current))
+    db.commit()
+    train_user_model(db, user, current)
+    LOGGER.info("sample copy created user_id=%s", user.id)
+    return start_session(db, user, current, days=SAMPLE_COPY_DAYS)
 
 
 @router.post("/logout", status_code=204)
@@ -298,7 +430,7 @@ def logout(session: UserSession = Depends(current_session), db: Session = Depend
 
 @router.get("/me")
 def me(user: User = Depends(current_user)):
-    return {"id": user.id, "email": user.email, "is_sample": user.is_sample}
+    return user_payload(user)
 
 
 class PasswordChangeIn(BaseModel):
@@ -317,6 +449,8 @@ def change_password(
     db: Session = Depends(get_db),
 ):
     """Change the password. Every other signed-in device is signed out; this one stays signed in."""
+    if is_sample_copy(user):
+        raise HTTPException(400, "Sample accounts have no password.")
     require_password(db, user, body.current_password, now(request))
     if not MIN_PASSWORD <= len(body.new_password) <= MAX_PASSWORD:
         raise HTTPException(422, f"Password must be {MIN_PASSWORD} to {MAX_PASSWORD} characters.")
