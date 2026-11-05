@@ -278,6 +278,9 @@ export default function AccountScreen({ user, onBack, onSupport, onDeleted }: Pr
         <button type="button" onClick={onSupport} className={linkButtonClass}>
           Need support?
         </button>
+        <a href="/privacy.html" target="_blank" rel="noopener" className={linkButtonClass}>
+          Privacy
+        </a>
         <button type="button" onClick={onBack} className={linkButtonClass}>
           Back
         </button>
