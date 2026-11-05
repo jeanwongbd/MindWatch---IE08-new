@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import DemoApp from "./DemoApp";
 import WelcomeScreen from "./screens/WelcomeScreen";
 import SignInScreen from "./screens/SignInScreen";
 import CalibrationScreen from "./screens/CalibrationScreen";
@@ -24,7 +23,7 @@ import { clearAnswers, loadAnswers, saveAnswers } from "./onboarding";
 import { clearToken, getToken, onSessionExpired, setToken } from "./session";
 import { useServerWaking } from "./useServerWaking";
 
-type View = "welcome" | "signin" | "calibration" | "consent" | "signup" | "demo" | "home" | "checkin" | "trends" | "why" | "reminders" | "watch" | "account" | "support";
+type View = "welcome" | "signin" | "calibration" | "consent" | "signup" | "home" | "checkin" | "trends" | "why" | "reminders" | "watch" | "account" | "support";
 
 const EXPIRED = "Your session expired. Please sign in again.";
 
@@ -184,7 +183,6 @@ export default function App() {
     );
   }
 
-  if (view === "demo") return <DemoApp />;
   if (view === "signin")
     return (
       <SignInScreen
@@ -263,7 +261,6 @@ export default function App() {
 
   return (
     <WelcomeScreen
-      onViewDemo={() => setView("demo")}
       onSignIn={ACCOUNTS_ENABLED ? () => setView("signin") : undefined}
       onCreateAccount={ACCOUNTS_ENABLED ? startOnboarding : undefined}
       onSample={ACCOUNTS_ENABLED ? startSample : undefined}

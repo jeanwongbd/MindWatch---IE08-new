@@ -1,5 +1,4 @@
 interface Props {
-  onViewDemo: () => void;
   /** Shown only when accounts are switched on. */
   onSignIn?: () => void;
   onCreateAccount?: () => void;
@@ -11,7 +10,7 @@ interface Props {
   notice?: string;
 }
 
-export default function WelcomeScreen({ onViewDemo, onSignIn, onCreateAccount, onSample, onSupport, notice }: Props) {
+export default function WelcomeScreen({ onSignIn, onCreateAccount, onSample, onSupport, notice }: Props) {
   return (
     <div
       style={{ fontFamily: "var(--font-body)" }}
@@ -46,17 +45,6 @@ export default function WelcomeScreen({ onViewDemo, onSignIn, onCreateAccount, o
             Sign in
           </button>
         )}
-        <button
-          onClick={onViewDemo}
-          className={
-            onSignIn || onCreateAccount
-              ? "text-xs text-accent-calm hover:underline"
-              : "w-full py-3.5 bg-ink text-background rounded-2xl hover:opacity-90 active:opacity-80 transition-opacity"
-          }
-          style={{ fontWeight: 500 }}
-        >
-          View demo
-        </button>
         {onSample && (
           <div>
             <button type="button" onClick={onSample} className="text-xs text-accent-calm hover:underline" style={{ fontWeight: 500 }}>
