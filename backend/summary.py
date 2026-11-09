@@ -1,7 +1,7 @@
 """A personal summary for Home: the person's usual level, their recent level, and how today compares.
 
 Worked out from the signed-in user's own check-ins each time it is asked for, so there is no extra
-table. It never claims a cause, and it never gives an estimate: "estimate" is always null until a
+table. It never claims a cause, and it never gives an estimate from a trained model: "estimate" is always null until a
 personal model has been trained and tested, in a later task.
 """
 from collections import Counter
@@ -16,7 +16,8 @@ from sqlalchemy.orm import Session
 from backend.auth import current_user, get_db, now
 from backend.checkins import local_today
 from backend.body_check import build_body_check
-from backend.models import Checkin, DailyMeasurement, User
+from backend.models import CalibrationAnswers, Checkin, DailyMeasurement, User
+from ml.src.expected import day_inputs, expected_stress
 
 router = APIRouter(prefix="/me", tags=["summary"])
 
@@ -69,8 +70,29 @@ def _compare(value: float, usual: float) -> str:
     return "higher" if diff >= COMPARE_THRESHOLD else "lower" if diff <= -COMPARE_THRESHOLD else "about"
 
 
-def build_why(rows: List[Checkin], today: date, usual_raw: Optional[float], today_row, recent: List[Checkin]) -> Dict:
-    """What the Why tab may say: only how today and this week sit against the person's own usual.
+def build_expected(rows: List[Checkin], today: date, measurements: List[DailyMeasurement], prior: Optional[float]) -> Optional[Dict]:
+    """A rough guess for today from this person's own past days (see ml/src/expected.py).
+
+    Past days are every check-in day before today. It is worked out on the spot and never stored.
+    """
+    by_measure = {m.date: m for m in measurements}
+    today_row = next((r for r in rows if r.date == today), None)
+    history = [
+        {"stress": r.stress, **day_inputs(by_measure.get(r.date), r)} for r in rows if r.date < today
+    ]
+    guess = expected_stress(history, day_inputs(by_measure.get(today), today_row), prior)
+    if guess is None:
+        return None
+    today_stress = today_row.stress if today_row is not None else None
+    return {
+        **guess,
+        "today_stress": today_stress,
+        "label": _compare(today_stress, guess["value"]) if today_stress is not None else None,
+    }
+
+
+def build_why(rows: List[Checkin], today: date, usual_raw: Optional[float], today_row, recent: List[Checkin], expected: Optional[Dict] = None) -> Dict:
+    """What the Why tab may say: how today sits against what we'd expect, and this week against the person's own usual.
 
     It describes a pattern and never gives a cause. Until WHY_MIN_DAYS different days have a
     check-in, it only reports how many there are.
@@ -83,12 +105,18 @@ def build_why(rows: List[Checkin], today: date, usual_raw: Optional[float], toda
         "ready": True,
         "have": have,
         "need": WHY_MIN_DAYS,
-        "today": _compare(today_row.stress, usual_raw) if today_row is not None else None,
+        "today": expected["label"] if expected is not None else (_compare(today_row.stress, usual_raw) if today_row is not None else None),
         "week": week,
     }
 
 
-def build_summary(rows: List[Checkin], today: date, measurements: Optional[List[DailyMeasurement]] = None) -> Dict:
+def build_summary(
+    rows: List[Checkin],
+    today: date,
+    measurements: Optional[List[DailyMeasurement]] = None,
+    usual_stress: Optional[float] = None,
+) -> Dict:
+    expected = build_expected(rows, today, measurements or [], usual_stress)
     count = len(rows)
     today_row = next((r for r in rows if r.date == today), None)
 
@@ -141,7 +169,8 @@ def build_summary(rows: List[Checkin], today: date, measurements: Optional[List[
         "recent_energy": recent_energy,
         "streak": streaks({r.date for r in rows}, today),
         "support_suggested": support_suggested,
-        "why": build_why(rows, today, usual_raw, today_row, recent),
+        "expected": expected,
+        "why": build_why(rows, today, usual_raw, today_row, recent, expected),
         "body_check": build_body_check(rows, measurements or [], today),
         "estimate": None,
     }
@@ -156,4 +185,6 @@ def summary(
 ):
     rows = list(db.scalars(select(Checkin).where(Checkin.user_id == user.id)).all())
     measurements = list(db.scalars(select(DailyMeasurement).where(DailyMeasurement.user_id == user.id)).all())
-    return build_summary(rows, local_today(now(request), utc_offset_minutes), measurements)
+    starting = db.get(CalibrationAnswers, user.id)
+    prior = starting.answers.get("usual_stress") if starting is not None else None
+    return build_summary(rows, local_today(now(request), utc_offset_minutes), measurements, prior)
