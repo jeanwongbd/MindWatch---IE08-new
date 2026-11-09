@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { BODY_CHECK_TITLE, bodyCheckMessage, heartText, sleepText } from "../bodyCheck";
+import { expectedLines } from "../expected";
 import { fetchSummary, type Summary } from "../summary";
 import AuthFrame, { friendlyError, linkButtonClass } from "./AuthFrame";
 
@@ -77,8 +78,24 @@ export default function PersonalWhyScreen({ onBack, onSupport }: Props) {
         </div>
       )}
 
+      {summary?.expected && (
+        <div className={card}>
+          <h2 className="text-xs text-muted uppercase tracking-wide font-mono">How today compares with what we'd expect</h2>
+          {expectedLines(summary.expected).map((line) => (
+            <p key={line} className="text-sm text-ink">
+              {line}
+            </p>
+          ))}
+          {why?.ready && why.week && <p className="text-sm text-ink">{WEEK[why.week]}</p>}
+          {why?.ready && summary.usual && (
+            <p className="text-xs text-muted">Your usual is {summary.usual.value} out of 10.</p>
+          )}
+        </div>
+      )}
+
       {summary && why?.ready && (
         <>
+          {!summary.expected && (
           <div className={card}>
             <h2 className="text-xs text-muted uppercase tracking-wide font-mono">How you compare with your usual</h2>
             <p className="text-sm text-ink">
@@ -89,6 +106,7 @@ export default function PersonalWhyScreen({ onBack, onSupport }: Props) {
               <p className="text-xs text-muted">Your usual is {summary.usual.value} out of 10.</p>
             )}
           </div>
+          )}
 
           {summary.recent_words.length > 0 && (
             <div className={card}>

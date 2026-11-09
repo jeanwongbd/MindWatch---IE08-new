@@ -17,6 +17,7 @@ const BASE: Summary = {
   streak: { current: 5, best: 5, status: "building" },
   support_suggested: false,
   why: { ready: false, have: 0, need: 7, today: null, week: null },
+  expected: null,
   estimate: null,
   body_check: null,
 };

@@ -36,6 +36,15 @@ export interface Summary {
     today: "higher" | "about" | "lower" | null;
     week: "higher" | "about" | "lower" | null;
   };
+  /** A rough guess for today from the person's own past days, or null when there is nothing to base it on. */
+  expected: {
+    value: number;
+    /** The inputs the guess used, in the order sleep_hours, steps, heart_rate, sleep_quality, activity. */
+    inputs: string[];
+    days_used: number;
+    today_stress: number | null;
+    label: "higher" | "about" | "lower" | null;
+  } | null;
   /** Always null until a personal model has been trained and tested. */
   estimate: null;
   /** How the person feels against what their body shows over 2 days, or null when there is nothing to say. */

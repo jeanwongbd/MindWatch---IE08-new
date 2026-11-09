@@ -1,3 +1,4 @@
+import { expectedLines } from "../expected";
 import { useEffect, useState } from "react";
 import type { AuthUser } from "../api";
 import { fetchCheckins, fetchSummary, type SavedCheckin, type Summary } from "../summary";
@@ -278,9 +279,19 @@ export default function HomeScreen({ user, onCheckIn, onTrends, onWhy, onReminde
                   )}
                 </div>
               </div>
-              {summary.today_vs_usual && (
+              {!summary.expected && summary.today_vs_usual && (
                 <p className="text-sm text-ink text-center">{COMPARISON[summary.today_vs_usual.label]}</p>
               )}
+            </div>
+          )}
+
+          {summary.expected && (
+            <div role="group" aria-label="What we'd expect today" className="rounded-2xl bg-surface p-4 space-y-1">
+              {expectedLines(summary.expected).map((line) => (
+                <p key={line} className="text-sm text-ink text-center">
+                  {line}
+                </p>
+              ))}
             </div>
           )}
 
