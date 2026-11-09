@@ -44,6 +44,8 @@ LOCKOUT = timedelta(minutes=15)
 MAX_SAMPLE_COPIES = 50
 SAMPLE_COPY_DAYS = 1
 SAMPLE_EMAIL_DOMAIN = "mindwatch.example.com"
+# Made-up sleep, in minutes, for the day before yesterday and yesterday in each sample copy.
+SAMPLE_SHORT_NIGHTS = (275, 250)
 # A copy has no password. Same marker the seeded template uses: it is not a valid hash, so nothing matches it.
 NO_PASSWORD = "!"
 # The starting-point answers given to a copy so the app treats it like someone who wears a watch.
@@ -395,20 +397,29 @@ def start_sample(request: Request, body: Optional[SampleIn] = None, db: Session 
                 updated_at=current,
             )
         )
+    copied = {}
     for m in db.scalars(select(DailyMeasurement).where(DailyMeasurement.user_id == template.id)).all():
         if m.date in new_day:
-            db.add(
-                DailyMeasurement(
-                    id=str(uuid.uuid4()),
-                    user_id=user.id,
-                    date=new_day[m.date],
-                    steps=m.steps,
-                    sleep_minutes=m.sleep_minutes,
-                    heart_rate_avg=m.heart_rate_avg,
-                    created_at=current,
-                    updated_at=current,
-                )
+            copied[new_day[m.date]] = DailyMeasurement(
+                id=str(uuid.uuid4()),
+                user_id=user.id,
+                date=new_day[m.date],
+                steps=m.steps,
+                sleep_minutes=m.sleep_minutes,
+                heart_rate_avg=m.heart_rate_avg,
+                created_at=current,
+                updated_at=current,
             )
+    # The study has no sleep data, so the last two nights are made up (and the app says so) to show
+    # the "How you feel vs your body" card. The study's stress on those days is already low.
+    for days_back, minutes in zip((1, 0), SAMPLE_SHORT_NIGHTS):
+        day = yesterday - timedelta(days=days_back)
+        if day not in copied:
+            copied[day] = DailyMeasurement(
+                id=str(uuid.uuid4()), user_id=user.id, date=day, created_at=current, updated_at=current
+            )
+        copied[day].sleep_minutes = minutes
+    db.add_all(copied.values())
     template_answers = db.get(CalibrationAnswers, template.id)
     if template_answers is not None:
         version, answers = template_answers.questions_version, dict(template_answers.answers)

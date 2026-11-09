@@ -7,7 +7,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from backend.auth import MAX_SAMPLE_COPIES
+from backend.auth import MAX_SAMPLE_COPIES, SAMPLE_SHORT_NIGHTS
 from backend.main import create_app
 from backend.scripts.seed_demo_user import CHECKINS, SAMPLE_EMAIL, seed, study_rows
 from backend.settings import Settings
@@ -134,9 +134,23 @@ class SampleAccount(unittest.TestCase):
         copy = self.rows("select stress from checkins where user_id in (select id from users where sample_expires_at is not null) order by date")
         self.assertEqual(copy, template)
         steps_of = lambda who: self.rows(
-            f"select steps from daily_measurements where user_id in (select id from users where {who}) order by date"
+            f"select steps from daily_measurements where steps is not null and user_id in (select id from users where {who}) order by date"
         )
         self.assertEqual(steps_of("sample_expires_at is not null"), steps_of("is_sample = 1"))
+
+    def test_copy_shows_the_body_check(self):
+        self.seed()
+        headers = {"Authorization": f"Bearer {self.copy_session()['token']}"}
+        check = self.summary(headers)["body_check"]
+        self.assertEqual(check["state"], "body_signal_feel_ok")
+        self.assertEqual(check["signals"], ["short_sleep"])
+        self.assertEqual(check["days"], [(TODAY - timedelta(days=d)).isoformat() for d in (2, 1)])
+        self.assertEqual([s["minutes"] for s in check["sleep"]], list(SAMPLE_SHORT_NIGHTS))
+        # Only the copy gets the made-up nights; the seeded template keeps the study's data.
+        self.assertEqual(
+            self.rows("select count(*) from daily_measurements where sleep_minutes is not null and user_id in (select id from users where is_sample = 1)"),
+            [(0,)],
+        )
 
     def test_utc_offset_decides_yesterday(self):
         self.seed()

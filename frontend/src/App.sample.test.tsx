@@ -83,6 +83,7 @@ describe("sample account", () => {
     tap(TRY);
     const banner = await screen.findByText(/Sample account\./);
     expect(banner.textContent).toMatch(/private to you/);
+    expect(banner.textContent).toMatch(/last two nights' sleep is made up/);
     expect(banner.textContent).toMatch(/deleted after a day/);
     expect(screen.queryByText(/Signed in as/)).toBeNull();
   });
