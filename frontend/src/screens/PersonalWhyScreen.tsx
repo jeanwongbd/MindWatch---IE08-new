@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
+import { BODY_CHECK_TITLE, bodyCheckMessage, heartText, sleepText } from "../bodyCheck";
 import { fetchSummary, type Summary } from "../summary";
 import AuthFrame, { friendlyError, linkButtonClass } from "./AuthFrame";
 
 interface Props {
   onBack: () => void;
+  onSupport?: () => void;
 }
 
 const TODAY = {
@@ -18,13 +20,22 @@ const WEEK = {
   lower: "This past week is lower than your usual.",
 } as const;
 
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function dayLabel(date: string): string {
+  const [y, m, d] = date.split("-").map(Number);
+  const local = new Date(y, m - 1, d);
+  return `${DAY_NAMES[local.getDay()]} ${d} ${MONTH_NAMES[m - 1]}`;
+}
+
 const card = "rounded-2xl border border-border p-4 space-y-1.5";
 
 /**
  * The signed-in person's Why tab. It describes how today and this week sit against their own usual,
  * and never says what might be behind it. Separate from the demo's Why screen.
  */
-export default function PersonalWhyScreen({ onBack }: Props) {
+export default function PersonalWhyScreen({ onBack, onSupport }: Props) {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [error, setError] = useState("");
 
@@ -93,6 +104,39 @@ export default function PersonalWhyScreen({ onBack }: Props) {
             </div>
           )}
         </>
+      )}
+
+      {summary?.body_check && (
+        <div className={card}>
+          <h2 className="text-xs text-muted uppercase tracking-wide font-mono">{BODY_CHECK_TITLE}</h2>
+          <ul aria-label="The 2 days compared" className="text-sm text-ink space-y-2">
+            {summary.body_check.days.map((date, i) => {
+              const check = summary.body_check!;
+              const heart = heartText(check, i);
+              return (
+                <li key={date}>
+                  <span className="text-muted">{dayLabel(date)}</span>
+                  <br />
+                  Stress: {check.stress[i]} out of 10
+                  <br />
+                  Sleep: {sleepText(check.sleep[i])}
+                  {check.heart && (
+                    <>
+                      <br />
+                      Heart rate: {heart ?? "not recorded"}
+                    </>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          <p className="text-sm text-ink">{bodyCheckMessage(summary.body_check).body}</p>
+          {bodyCheckMessage(summary.body_check).support && onSupport && (
+            <button type="button" onClick={onSupport} className={linkButtonClass}>
+              Need support?
+            </button>
+          )}
+        </div>
       )}
 
       {summary && (

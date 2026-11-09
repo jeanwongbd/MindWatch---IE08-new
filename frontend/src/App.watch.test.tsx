@@ -28,6 +28,7 @@ const BASE: Summary = {
   support_suggested: false,
   why: { ready: false, have: 0, need: 7, today: null, week: null },
   estimate: null,
+  body_check: null,
 };
 
 const block = (values: unknown[]) => {

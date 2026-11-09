@@ -18,6 +18,7 @@ const SUMMARY: Summary = {
   support_suggested: false,
   why: { ready: false, have: 0, need: 7, today: null, week: null },
   estimate: null,
+  body_check: null,
 };
 
 // 2026-01-15 is a Thursday. The window is Fri 9 Jan to Thu 15 Jan; Sat 10 and Mon 12 have no check-in.

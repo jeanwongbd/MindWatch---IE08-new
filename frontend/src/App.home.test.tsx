@@ -21,6 +21,7 @@ const EMPTY: Summary = {
   support_suggested: false,
   why: { ready: false, have: 0, need: 7, today: null, week: null },
   estimate: null,
+  body_check: null,
 };
 
 // The four stages the plan names, as the server would describe them.

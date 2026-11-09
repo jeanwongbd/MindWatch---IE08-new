@@ -268,7 +268,7 @@ export default function App() {
     );
   if (view === "support") return <SupportScreen onBack={() => setView(supportBack)} />;
   if (view === "trends" && user) return <PersonalTrendsScreen onBack={() => setView("home")} />;
-  if (view === "why" && user) return <PersonalWhyScreen onBack={() => setView("home")} />;
+  if (view === "why" && user) return <PersonalWhyScreen onBack={() => setView("home")} onSupport={() => openSupport("why")} />;
 
   return (
     <WelcomeScreen
