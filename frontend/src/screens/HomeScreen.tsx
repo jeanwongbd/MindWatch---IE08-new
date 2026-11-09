@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { AuthUser } from "../api";
 import { fetchCheckins, fetchSummary, type SavedCheckin, type Summary } from "../summary";
+import { BODY_CHECK_TITLE, bodyCheckMessage } from "../bodyCheck";
 import { WORD_CHIP, chipClass, energyChip } from "../chips";
 import { reminders } from "../remindersService";
 import { ReminderOffer, WebReminderBanner } from "./ReminderPrompts";
@@ -279,6 +280,25 @@ export default function HomeScreen({ user, onCheckIn, onTrends, onWhy, onReminde
               {summary.today_vs_usual && (
                 <p className="text-sm text-ink text-center">{COMPARISON[summary.today_vs_usual.label]}</p>
               )}
+            </div>
+          )}
+
+          {summary.body_check && (
+            <div role="group" aria-label={BODY_CHECK_TITLE} className="rounded-2xl bg-surface p-4 space-y-2">
+              <p className="text-xs text-accent-load" style={{ fontWeight: 600 }}>
+                {BODY_CHECK_TITLE}
+              </p>
+              <p className="text-sm text-ink">{bodyCheckMessage(summary.body_check).body}</p>
+              <div className="flex gap-4">
+                <button type="button" onClick={onWhy} className={linkButtonClass}>
+                  See details
+                </button>
+                {bodyCheckMessage(summary.body_check).support && (
+                  <button type="button" onClick={onSupport} className={linkButtonClass}>
+                    Need support?
+                  </button>
+                )}
+              </div>
             </div>
           )}
 

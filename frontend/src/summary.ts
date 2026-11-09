@@ -1,6 +1,17 @@
 import { api } from "./api";
 import { utcOffsetMinutes } from "./checkinWords";
 
+/** The two-day comparison of how the person says they feel and what their body data shows. */
+export interface BodyCheck {
+  state: "body_signal_feel_ok" | "feel_stressed_body_usual" | "both";
+  /** The 2 consecutive days looked at, oldest first. */
+  days: string[];
+  stress: number[];
+  sleep: { minutes: number | null; manual: string | null; short: boolean; known: boolean }[];
+  heart: { usual: number; values: (number | null)[]; high: boolean[] } | null;
+  signals: ("short_sleep" | "high_heart_rate")[];
+}
+
 /** What /me/summary returns. Every number is the signed-in person's own. */
 export interface Summary {
   today: string;
@@ -27,6 +38,8 @@ export interface Summary {
   };
   /** Always null until a personal model has been trained and tested. */
   estimate: null;
+  /** How the person feels against what their body shows over 2 days, or null when there is nothing to say. */
+  body_check: BodyCheck | null;
 }
 
 export interface SavedCheckin {

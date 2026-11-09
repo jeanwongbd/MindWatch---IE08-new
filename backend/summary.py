@@ -15,7 +15,8 @@ from sqlalchemy.orm import Session
 
 from backend.auth import current_user, get_db, now
 from backend.checkins import local_today
-from backend.models import Checkin, User
+from backend.body_check import build_body_check
+from backend.models import Checkin, DailyMeasurement, User
 
 router = APIRouter(prefix="/me", tags=["summary"])
 
@@ -87,7 +88,7 @@ def build_why(rows: List[Checkin], today: date, usual_raw: Optional[float], toda
     }
 
 
-def build_summary(rows: List[Checkin], today: date) -> Dict:
+def build_summary(rows: List[Checkin], today: date, measurements: Optional[List[DailyMeasurement]] = None) -> Dict:
     count = len(rows)
     today_row = next((r for r in rows if r.date == today), None)
 
@@ -141,6 +142,7 @@ def build_summary(rows: List[Checkin], today: date) -> Dict:
         "streak": streaks({r.date for r in rows}, today),
         "support_suggested": support_suggested,
         "why": build_why(rows, today, usual_raw, today_row, recent),
+        "body_check": build_body_check(rows, measurements or [], today),
         "estimate": None,
     }
 
@@ -153,4 +155,5 @@ def summary(
     db: Session = Depends(get_db),
 ):
     rows = list(db.scalars(select(Checkin).where(Checkin.user_id == user.id)).all())
-    return build_summary(rows, local_today(now(request), utc_offset_minutes))
+    measurements = list(db.scalars(select(DailyMeasurement).where(DailyMeasurement.user_id == user.id)).all())
+    return build_summary(rows, local_today(now(request), utc_offset_minutes), measurements)
