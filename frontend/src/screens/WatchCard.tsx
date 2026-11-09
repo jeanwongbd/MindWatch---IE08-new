@@ -123,7 +123,9 @@ export default function WatchCard({ userId, onOpen, isSample = false }: Props) {
         <p>Sleep: {sleepText(saved.sleep_minutes)}</p>
         <p>Heart rate: {heartText(saved.heart_rate_avg)}</p>
         <p className="text-xs text-muted">
-          {isSample ? "Sample data from the study." : "Synced from the MindWatch Android app."}
+          {isSample
+            ? "Sample data. Steps come from the study; the last two nights' sleep is made up."
+            : "Synced from the MindWatch Android app."}
         </p>
       </div>
     );

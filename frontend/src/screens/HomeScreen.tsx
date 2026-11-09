@@ -141,6 +141,7 @@ export default function HomeScreen({ user, onCheckIn, onTrends, onWhy, onReminde
       {user.is_sample ? (
         <p role="status" className="text-xs text-ink text-center rounded-2xl border border-border p-3">
           Sample account. These 30 days are real check-ins from one study participant, moved so they end yesterday.
+          The last two nights' sleep is made up, so you can see how the app compares your feelings with your sleep.
           Anything you change is private to you, and this copy is deleted after a day.
         </p>
       ) : (

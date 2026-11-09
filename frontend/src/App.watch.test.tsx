@@ -281,7 +281,7 @@ describe("the watch card on the website", () => {
   it("web_sample_says_its_watch_data_is_from_the_study", async () => {
     web();
     await openHome({ ...WITH_WATCH, ...saved(day()), "GET /auth/me": { body: { ...USER, is_sample: true } } });
-    await waitFor(() => expect(card().textContent).toMatch(/Sample data from the study\./));
+    await waitFor(() => expect(card().textContent).toMatch(/Steps come from the study; the last two nights' sleep is made up\./));
     expect(card().textContent).not.toMatch(/Android app/);
   });
 
